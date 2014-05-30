@@ -5,4 +5,5 @@ echo 'Updating BDFProxy'
 git pull
 echo 'Updating BDF'
 cd bdf/
-git pull
+git pull origin master
+

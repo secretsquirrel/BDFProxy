@@ -2,6 +2,14 @@
 #The Backdoor Factory Proxy (BDFProxy) v0.1
 For security professionals and researchers only.
 
+Contact the developer on:
+	
+	IRC:
+ 	irc.freenode.net #BDFactory 
+
+ 	Twitter:
+ 	@midnite_runr
+ 	
 This script rides on two libraries for usage:
 The Backdoor Factory (BDF) and the mitmProxy.
 
@@ -39,7 +47,7 @@ Yes, some of those apps are protected by self checking mechanisms.  I've been wo
 Tested on all Kali Linux builds, whether a physical beefy laptop, a Raspberry Pi, or a VM, each can run BDFProxy. 
 
 
-##Install
+##Install:
 BDF is in bdf/ 
 
 Run the following to pull down the most recent:
@@ -49,6 +57,13 @@ Run the following to pull down the most recent:
 OR:
 
 	git clone https://github.com/secretsquirrel/the-backdoor-factory bdf/
+
+
+If you get a certificate error, run the following:
+
+	mitmproxy
+
+And exit [Ctr+C] after mitmProxy loads.
 
 
 ##Usage:

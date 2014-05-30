@@ -41,7 +41,9 @@ Tested on all Kali Linux builds, whether a physical beefy laptop, a Raspberry Pi
 
 ##Install
 BDF is in bdf/ 
+
 Run the following to pull down the most recent:
+
 	./install.sh
 
 OR:

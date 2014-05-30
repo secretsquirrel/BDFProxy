@@ -26,7 +26,7 @@ Yes, some of those apps are protected by self checking mechanisms.  I've been wo
 
 ---
 
-##Depends"
+##Depends:
 
 	Pefile - most recent
 	ConfigObj  
@@ -36,7 +36,7 @@ Yes, some of those apps are protected by self checking mechanisms.  I've been wo
 
 ---
 ##Supported Environment:
-Tested on all Kali Linux Builds, whether a physical beefy laptop, a Raspberry Pi, or a VM, each can run BDFProxy. 
+Tested on all Kali Linux builds, whether a physical beefy laptop, a Raspberry Pi, or a VM, each can run BDFProxy. 
 
 
 ##Usage:

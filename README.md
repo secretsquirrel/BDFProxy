@@ -9,7 +9,7 @@ Contact the developer on:
 
  	Twitter:
  	@midnite_runr
- 	
+
 This script rides on two libraries for usage:
 The Backdoor Factory (BDF) and the mitmProxy.
 
@@ -77,7 +77,12 @@ READ THE CONFIG!!!
 
 You will need to configure your C2 host and port settings before running BDFProxy. DO NOT overlap C2 PORT settings between different payloads. You'll be sending linux shells to windows machines and things will be segfaulting all over the place. After running, there will be a metasploit resource script created to help with setting up your C2 communications. Check it carefully. By the way, everything outside the [Overall] section updates on the fly, so you don't have to kill your proxy to change settings to work with your environment.
 
-But wait!  You will need to configure your mitm machine for mitm-ing!  If you are using a wifiPineapple I modded a script put out by hack5 to help you with configuration. Run ./wpBDF.sh and enter in the correct configs for your environment.
+But wait!  You will need to configure your mitm machine for mitm-ing!  If you are using a wifiPineapple I modded a script put out by hack5 to help you with configuration. Run ./wpBDF.sh and enter in the correct configs for your environment.  This script configures iptables to push only http (non-ssl) traffic through the proxy.  All other traffic is fowarded normally.
+
+Then:
+
+	./bdf_proxy.py
+
 
 Here's some sweet ascii art for possible phyiscal settings of the proxy:
 
@@ -88,6 +93,19 @@ Lan usage:
 Wifi usage:
 
 		<Internet>----<mitmMachine>----<wifiPineapple>)))
+
+
+Testing:
+
+	Suppose you want to use your browser with Firefox and FoxyProxy to connect to test your setup.
+
+		Update your config as follows:
+		transparentProxy = False
+
+		Configure FoxyProxy to use BDFProxy as a proxy.
+		Default port in the config is 8080.
+
+
 
 ##Logging: 
 We have it.  The proxy window will quickly fill with massive amounts of cat links depending on the client you are testing.  Use `tail -f proxy.log` to see what is getting patched and blocked by your blacklist settings.  However, keep an eye on the main proxy window if you have chosen to patch binaries manually, things move fast and behind the scences there is multi-threading of traffic, but the intial requests and responses are locking for your viewing pleasure.

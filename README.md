@@ -50,7 +50,7 @@ But wait!  You will need to configure your mitm machine for mitm-ing!  If you ar
 
 LOGGING: We have it.  The proxy window will quickly fill with massive amounts of cat links depending on the client you are testing.  Use tail -f proxy.log to see what is getting patched and blocked by your blacklist settings.  However, keep an eye on the main proxy window if you have chosen to patch binaries manually, things move fast and behind the scences there is multi-threading of traffic, but the intial requests and responses are locking for your viewing pleasure.
 
-Here's some sweet ascii art of phyiscal settings of the proxy:
+Here's some sweet ascii art for possible phyiscal settings of the proxy:
 
 Lan usage:
 

@@ -33,8 +33,8 @@
 from libmproxy import controller, proxy, platform
 from tempfile import mkstemp
 import os
-from bdfdev import pebin
-from bdfdev import elfbin
+from bdf import pebin
+from bdf import elfbin
 import string
 import random
 import zipfile

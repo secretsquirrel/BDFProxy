@@ -9,7 +9,7 @@ The Backdoor Factory (BDF) and the mitmProxy.
 Patch binaries during download via MITM.
 
 ###Why:
-Because a lot of security tool sites still serve binaries via non-SSL/TLS means.
+Because a lot of security tool websites still serve binaries via non-SSL/TLS means.
 
 Here's a short list:
 
@@ -22,8 +22,7 @@ Here's a short list:
 		Wireshark
 		etc...
 
-Yes. Some of those apps are protected by self checking mechanisms.  I've been working on a way to automatically bypass NSIS checks as a proof of concept.  However, that does not stop the initial issue of bitflipping during download.
-Also, BDF by default will patch out the certificate table pointer during download thereby removing the signature from the binary.
+Yes, some of those apps are protected by self checking mechanisms.  I've been working on a way to automatically bypass NSIS checks as a proof of concept.  However, that does not stop the initial issue of bitflipping during download and the execution of a malicious payload. Also, BDF by default will patch out the certificate table pointer during download thereby removing the signature from the binary.
 
 ---
 

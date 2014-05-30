@@ -39,6 +39,15 @@ Yes, some of those apps are protected by self checking mechanisms.  I've been wo
 Tested on all Kali Linux builds, whether a physical beefy laptop, a Raspberry Pi, or a VM, each can run BDFProxy. 
 
 
+##Install
+BDF is in bdf/ 
+Run the following to pull down the most recent:
+	./install.sh
+
+OR:
+	git clone https://github.com/secretsquirrel/the-backdoor-factory bdf/
+
+
 ##Usage:
 Update everything before each use:
 

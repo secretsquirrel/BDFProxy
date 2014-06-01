@@ -30,7 +30,7 @@ Here's a short list:
 		Wireshark
 		etc...
 
-Yes, some of those apps are protected by self checking mechanisms.  I've been working on a way to automatically bypass NSIS checks as a proof of concept.  However, that does not stop the initial issue of bitflipping during download and the execution of a malicious payload. Also, BDF by default will patch out the certificate table pointer during download thereby removing the signature from the binary.
+Yes, some of those apps are protected by self checking mechanisms.  I've been working on a way to automatically bypass NSIS checks as a proof of concept.  However, that does not stop the initial issue of bitflipping during download and the execution of a malicious payload. Also, BDF by default will patch out the windows PE certificate table pointer during download thereby removing the signature from the binary.
 
 ---
 

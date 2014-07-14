@@ -40,7 +40,7 @@ Yes, some of those apps are protected by self checking mechanisms.  I've been wo
 	ConfigObj  
 	mitmProxy - Kali Build .10
 	BDF - most current
-
+	Capstone (part of BDF)
 
 ---
 ##Supported Environment:

@@ -193,6 +193,11 @@ class proxyMaster(controller.Master):
                     newTarFile.addfile(info, tarFile.extractfile(info))
                     continue
 
+                if info.size >= long(self.FileSizeMax):
+                    print info.name, 'is too big'
+                    newTarFile.addfile(info, tarFile.extractfile(info))
+                    continue
+
                 # Check against keywords
                 keywordCheck = False
 

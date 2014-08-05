@@ -587,6 +587,13 @@ class proxyMaster(controller.Master):
             self.zipblacklist = self.userConfig['ZIP']['blacklist']
             self.tarblacklist = self.userConfig['TAR']['blacklist']
 
+            for target in self.userConfig['targets'].keys():
+                if target == 'ALL':
+                    self.parse_target_config(self.userConfig['targets']['ALL'])
+
+                if target in msg.request.host or target == msg.request.ip:
+                    self.parse_target_config(self.userConfig['targets'][target])
+
         except Exception as e:
             print "[!] YOUR CONFIG IS BROKEN:", str(e)
             logging.warning("[!] YOUR CONFIG IS BROKEN %s", str(e))
@@ -610,6 +617,12 @@ class proxyMaster(controller.Master):
 
         self.hosts_blacklist_check(msg)
 
+        if 'content-length' in msg.headers.keys():
+            if int(msg.headers['content-length'][0]) >= long(self.FileSizeMax):
+                print "[!] Not patching over content-length, forwarding to user"
+                logging.info("Over FileSizeMax setting %s : %s", msg.request.host, msg.request.path)
+                self.patchIT = False
+
         if self.patchIT is False:
             print '[!] Not patching, msg did not make it through config settings'
             logging.info("Config did not allow the patching of HOST: %s, PATH: %s",
@@ -618,19 +631,6 @@ class proxyMaster(controller.Master):
             msg.reply()
 
         else:
-            for target in self.userConfig['targets'].keys():
-                if target == 'ALL':
-                    self.parse_target_config(self.userConfig['targets']['ALL'])
-
-                if target in msg.request.host or target == msg.request.ip:
-                    self.parse_target_config(self.userConfig['targets'][target])
-
-            if 'content-length' in msg.headers.keys():
-                if int(msg.headers['content-length'][0]) >= long(self.FileSizeMax):
-                    print "[!] Not patching over content-length, forwarding to user"
-                    logging.info("Over FileSizeMax setting %s : %s", msg.request.host, msg.request.path)
-                    msg.reply()
-
             if self.bytes_have_format(msg.content, 'zip') and self.convert_to_Bool(self.CompressedFiles) is True:
                     aZipFile = msg.content
                     msg.content = self.zip_files(aZipFile)

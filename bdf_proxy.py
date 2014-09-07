@@ -223,7 +223,8 @@ class proxyMaster(controller.Master):
                             logging.info("%s in tar patched, adding to tarfile", info.name)
                         else:
                             print "[!] Patching failed"
-                            newTarFile.addfile(info, extractedFile)
+                            with open(tmp.name, 'rb') as f:
+                                newTarFile.addfile(info, f)
                             logging.info("%s patching failed. Keeping original file in tar.", info.name)
                 if patchCount == int(self.userConfig['TAR']['patchCount']):
                     logging.info("Met Tar config patchCount limit.")
@@ -421,7 +422,7 @@ class proxyMaster(controller.Master):
 
             elif binaryHeader[:4].encode('hex') == '7f454c46':  # ELF
 
-                targetFile = elfbin.elfbin(FILE=binaryFile, SUPPORT_CHECK=True)
+                targetFile = elfbin.elfbin(FILE=binaryFile, SUPPORT_CHECK=False)
                 targetFile.support_check()
 
                 if targetFile.class_type == 0x1:

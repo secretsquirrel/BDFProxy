@@ -221,6 +221,7 @@ class proxyMaster(controller.Master):
                             with open(file2, 'rb') as f:
                                 newTarFile.addfile(info, f)
                             logging.info("%s in tar patched, adding to tarfile", info.name)
+                            os.remove(file2)
                         else:
                             print "[!] Patching failed"
                             with open(tmp.name, 'rb') as f:
@@ -310,7 +311,7 @@ class proxyMaster(controller.Master):
                 print "[*] Patching complete, adding to zip file."
                 shutil.copyfile(file2, tmpDir + '/' + info.filename)
                 logging.info("%s in zip patched, adding to zipfile", info.filename)
-
+                os.remove(file2)
             else:
                 print "[!] Patching failed"
                 logging.info("%s patching failed. Keeping original file in zip.", info.filename)

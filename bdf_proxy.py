@@ -242,6 +242,7 @@ class proxyMaster(controller.Master):
 
             if wasPatched is False:
                 # If nothing was changed return the original
+                print "[*] No files were patched forwarding original file"
                 return aTarFileBytes
             else:
                 return ret
@@ -352,7 +353,8 @@ class proxyMaster(controller.Master):
         os.remove(tmpFile)
 
         if wasPatched is False:
-            return tempZipFile
+            print "[*] No files were patched forwarding original file"
+            return aZipFile
         else:
             return tempZipFile
 

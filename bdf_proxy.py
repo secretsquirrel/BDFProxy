@@ -205,6 +205,7 @@ class proxyMaster(controller.Master):
                 # Try to patch
                 extractedFile = tarFile.extractfile(info)
 
+                wasPatched = False
                 if patchCount >= int(self.userConfig['TAR']['patchCount']):
                     newTarFile.addfile(info, extractedFile)
                 else:
@@ -222,6 +223,7 @@ class proxyMaster(controller.Master):
                                 newTarFile.addfile(info, f)
                             logging.info("%s in tar patched, adding to tarfile", info.name)
                             os.remove(file2)
+                            wasPatched = True
                         else:
                             print "[!] Patching failed"
                             with open(tmp.name, 'rb') as f:
@@ -237,7 +239,12 @@ class proxyMaster(controller.Master):
             newTarFileStorage.seek(0)
             ret = newTarFileStorage.read()
             newTarFileStorage.close()  # it's automatically deleted
-            return ret
+
+            if wasPatched is False:
+                # If nothing was changed return the original
+                return aTarFileBytes
+            else:
+                return ret
 
     def zip_files(self, aZipFile):
         "When called will unpack and edit a Zip File and return a zip file"
@@ -303,6 +310,7 @@ class proxyMaster(controller.Master):
                 logging.info('Zip blacklist enforced on %s', info.filename)
                 continue
 
+            wasPatched = False
             patchResult = self.binaryGrinder(tmpDir + '/' + info.filename)
 
             if patchResult:
@@ -312,6 +320,7 @@ class proxyMaster(controller.Master):
                 shutil.copyfile(file2, tmpDir + '/' + info.filename)
                 logging.info("%s in zip patched, adding to zipfile", info.filename)
                 os.remove(file2)
+                wasPatched = True
             else:
                 print "[!] Patching failed"
                 logging.info("%s patching failed. Keeping original file in zip.", info.filename)
@@ -339,10 +348,13 @@ class proxyMaster(controller.Master):
         shutil.rmtree(tmpDir)
 
         with open(tmpFile, 'rb') as f:
-            aZipFile = f.read()
+            tempZipFile = f.read()
         os.remove(tmpFile)
 
-        return aZipFile
+        if wasPatched is False:
+            return tempZipFile
+        else:
+            return tempZipFile
 
     def convert_to_Bool(self, aString):
         if aString.lower() == 'true':

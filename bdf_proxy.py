@@ -171,6 +171,8 @@ class proxyMaster(controller.Master):
             newTarFile = tarfile.open(mode='w' + compressionMode, fileobj=newTarFileStorage)
 
             patchCount = 0
+            wasPatched = False
+
             for info in members:
                 print "[*] >>> Next file in tarfile:", info.name
 
@@ -205,7 +207,6 @@ class proxyMaster(controller.Master):
                 # Try to patch
                 extractedFile = tarFile.extractfile(info)
 
-                wasPatched = False
                 if patchCount >= int(self.userConfig['TAR']['patchCount']):
                     newTarFile.addfile(info, extractedFile)
                 else:
@@ -286,6 +287,8 @@ class proxyMaster(controller.Master):
 
         patchCount = 0
 
+        wasPatched = False
+            
         for info in zippyfile.infolist():
             print "[*] >>> Next file in zipfile:", info.filename
 
@@ -311,7 +314,6 @@ class proxyMaster(controller.Master):
                 logging.info('Zip blacklist enforced on %s', info.filename)
                 continue
 
-            wasPatched = False
             patchResult = self.binaryGrinder(tmpDir + '/' + info.filename)
 
             if patchResult:

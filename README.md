@@ -2,6 +2,10 @@
 #The Backdoor Factory Proxy (BDFProxy) v0.1
 For security professionals and researchers only.
 
+DerbyCon 2014 Presentation: http://www.youtube.com/watch?v=LjUN9MACaTs
+
+About 18 minutes in is the BDFProxy portion.
+
 Contact the developer on:
 	
 	IRC:

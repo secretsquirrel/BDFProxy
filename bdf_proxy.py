@@ -707,15 +707,11 @@ userConfig = ConfigObj('bdfproxy.cfg')
 #################### BEGIN OVERALL CONFIGS ############################
 #DOES NOT UPDATE ON THE FLY
 resourceScript = userConfig['Overall']['resourceScript']
-<<<<<<< HEAD
+
 config = proxy.ProxyConfig(clientcerts=os.path.expanduser(userConfig['Overall']['certLocation']),
-                           body_size_limit=userConfig['Overall']['MaxSizeFileRequested'],
-                           port=int(userConfig['Overall']['proxyPort'])
-=======
-config = proxy.ProxyConfig(cacert=os.path.expanduser(userConfig['Overall']['certLocation']),
                            body_size_limit=int(userConfig['Overall']['MaxSizeFileRequested']),
->>>>>>> d9c45fdd635bf5a5769847d144ebfd384dce53af
-                           )
+                           port=int(userConfig['Overall']['proxyPort'])
+
 
 if userConfig['Overall']['transparentProxy'] == "True":
     config.transparent_proxy = {'sslports': userConfig['Overall']['sslports'],

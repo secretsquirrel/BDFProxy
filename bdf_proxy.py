@@ -43,6 +43,7 @@ from tempfile import mkstemp
 import os
 from bdf import pebin
 from bdf import elfbin
+from bdf import machobin
 import string
 import random
 import zipfile
@@ -53,6 +54,7 @@ import logging
 import json
 import tarfile
 import tempfile
+
 
 try:
     from configobj import ConfigObj
@@ -116,7 +118,10 @@ class proxyMaster(controller.Master):
                              'gz': {'number': '1f8b'.decode('hex'), 'offset': 0},
                              'bz': {'number': 'BZ', 'offset': 0},
                              'zip': {'number': '504b0304'.decode('hex'), 'offset': 0},
-                             'tar': {'number': 'ustar', 'offset': 257}
+                             'tar': {'number': 'ustar', 'offset': 257},
+                             'fatfile': {'number': 'cafebabe'.decode('hex'), 'offset': 0},
+                             'machox64': {'number': 'cffaedfe'.decode('hex'), 'offset': 0},
+                             'machox86': {'number': 'cefaedfe'.decode('hex'), 'offset': 0},
                              }
 
     def run(self):
@@ -451,7 +456,7 @@ class proxyMaster(controller.Master):
                 targetFile.support_check()
 
                 if targetFile.class_type == 0x1:
-                    #x86
+                    #x86CPU Type
                     targetFile = elfbin.elfbin(FILE=binaryFile,
                                                OUTPUT=os.path.basename(binaryFile),
                                                SHELL=self.LinuxIntelx86['SHELL'],
@@ -473,6 +478,28 @@ class proxyMaster(controller.Master):
                                                )
                     result = targetFile.run_this()
 
+            elif binaryHeader[:4].encode('hex') in  ['cefaedfe', 'cffaedfe', 'fatfile']: # Macho
+                print 'elmacho'
+                targetFile = machobin.machobin(FILE=binaryFile, SUPPORT_CHECK=False)
+                targetFile.support_check()
+
+                #ONE CHIP SET MUST HAVE PRIORITY in FAT FILE
+                print targetFile.mach_hdrs
+                print 'CPU TYPE', targetFile.mach_hdrs[0]['CPU Type']
+
+                if targetFile.FAT_FILE is True:
+                    pass
+                
+                elif targetFile.mach_hdrs[0]['CPU Type'] == '0x7':
+                    print 'x86'
+
+                elif targetFile.mach_hdrs[0]['CPU Type'] == '0x1000007':
+                    print 'x64'
+
+
+                result = False
+           
+            print binaryHeader[:4].encode('hex')
             return result
 
         except Exception as e:
@@ -658,11 +685,14 @@ class proxyMaster(controller.Master):
             flow.reply()
 
         else:
+            print flow.reply.obj.response.content[:4].encode('hex')
             if self.bytes_have_format(flow.reply.obj.response.content, 'zip') and self.convert_to_Bool(self.CompressedFiles) is True:
                     aZipFile = flow.reply.obj.response.content
                     flow.reply.obj.response.content = self.zip_files(aZipFile)
 
-            elif self.bytes_have_format(flow.reply.obj.response.content, 'pe') or self.bytes_have_format(flow.reply.obj.response.content, 'elf'):
+            elif self.bytes_have_format(flow.reply.obj.response.content, 'pe') or self.bytes_have_format(flow.reply.obj.response.content, 'elf') or \
+                self.bytes_have_format(flow.reply.obj.response.content, 'fatfile') or self.bytes_have_format(flow.reply.obj.response.content, 'machox86') or \
+                self.bytes_have_format(flow.reply.obj.response.content, 'machox64'):             
 
                 orgFile = flow.reply.obj.response.content
 
@@ -711,7 +741,7 @@ resourceScript = userConfig['Overall']['resourceScript']
 config = proxy.ProxyConfig(clientcerts=os.path.expanduser(userConfig['Overall']['certLocation']),
                            body_size_limit=int(userConfig['Overall']['MaxSizeFileRequested']),
                            port=int(userConfig['Overall']['proxyPort'])
-
+                           )
 
 if userConfig['Overall']['transparentProxy'] == "True":
     config.transparent_proxy = {'sslports': userConfig['Overall']['sslports'],

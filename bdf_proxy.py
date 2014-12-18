@@ -711,7 +711,7 @@ resourceScript = userConfig['Overall']['resourceScript']
 config = proxy.ProxyConfig(clientcerts=os.path.expanduser(userConfig['Overall']['certLocation']),
                            body_size_limit=int(userConfig['Overall']['MaxSizeFileRequested']),
                            port=int(userConfig['Overall']['proxyPort'])
-
+                           )
 
 if userConfig['Overall']['transparentProxy'] == "True":
     config.transparent_proxy = {'sslports': userConfig['Overall']['sslports'],

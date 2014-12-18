@@ -699,7 +699,7 @@ userConfig = ConfigObj('bdfproxy.cfg')
 #DOES NOT UPDATE ON THE FLY
 resourceScript = userConfig['Overall']['resourceScript']
 config = proxy.ProxyConfig(cacert=os.path.expanduser(userConfig['Overall']['certLocation']),
-                           body_size_limit=userConfig['Overall']['MaxSizeFileRequested'],
+                           body_size_limit=int(userConfig['Overall']['MaxSizeFileRequested']),
                            )
 
 if userConfig['Overall']['transparentProxy'] == "True":

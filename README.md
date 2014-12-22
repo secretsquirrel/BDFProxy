@@ -8,7 +8,7 @@ To upgrade on Kali, until mitmproxy v0.11 is included the Kali main repository (
 
 ```
 apt-get update && apt-get upgrade -y
-apt-get install libxml2-dev libxslt1-dev
+apt-get install libxml2-dev libxslt1-dev python-dev
 pip install --upgrade six
 pip install PyOpenSSL==0.14
 pip install --upgrade mitmproxy

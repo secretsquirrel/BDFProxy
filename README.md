@@ -111,7 +111,7 @@ Wifi usage:
 		<Internet>----<mitmMachine>----<wifiPineapple>)))
 
 
-Testing:
+##Testing:
 
 	Suppose you want to use your browser with Firefox and FoxyProxy to connect to test your setup.
 

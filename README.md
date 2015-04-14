@@ -1,5 +1,5 @@
 
-#The Backdoor Factory Proxy (BDFProxy) v0.2
+#The Backdoor Factory Proxy (BDFProxy) v0.3
 For security professionals and researchers only.
 
 ###NOW ONLY WORKS WITH MITMPROXY >= v.0.11 

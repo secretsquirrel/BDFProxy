@@ -30,7 +30,6 @@
 
 from libmproxy import controller, proxy, platform
 from libmproxy.proxy.server import ProxyServer
-from tempfile import mkstemp
 import os
 from bdf import pebin
 from bdf import elfbin
@@ -56,6 +55,7 @@ def in_dir(dirpath):
         yield
     finally:
         os.chdir(prev)
+
 
 def write_resource(resource_file, values):
     with open(resource_file, 'w') as f:
@@ -83,6 +83,7 @@ def write_resource(resource_file, values):
                     f.write(write_statement4)
                     f.write(write_statement5)
 
+
 def dict_parse(d):
     tmp_values = {}
     for key, value in d.iteritems():
@@ -96,6 +97,7 @@ def dict_parse(d):
             tmp_values['MSFPAYLOAD'] = value
 
     resourceValues.append(tmp_values)
+
 
 class EnhancedOutput:
     def __init__(self):
@@ -134,6 +136,7 @@ class EnhancedOutput:
         size = len(f) / 1024
         EnhancedOutput.print_info("File size: {0} KB".format(size))
 
+
 class ProxyMaster(controller.Master):
     user_config = None
     host_blacklist = []
@@ -153,8 +156,8 @@ class ProxyMaster(controller.Master):
         controller.Master.__init__(self, srv)
 
         self.binaryMimeType = {'mimes': ['application/octet-stream', 'application/x-msdownload',
-                                'application/x-msdos-program', 'binary/octet-stream',
-                                'application/x-executable', 'application/x-dosexec']}
+                               'application/x-msdos-program', 'binary/octet-stream',
+                               'application/x-executable', 'application/x-dosexec']}
 
         self.zipType = {'mimes': ['application/x-zip-compressed', 'application/zip'], 'params': {'type': 'ZIP', 'format': 'zip', 'filter': None}}  # .zip
 
@@ -420,7 +423,7 @@ class ProxyMaster(controller.Master):
 
                 # update when supporting more than one arch
                 if (magic == int('20B', 16) and machineType == 0x8664 and
-                            self.WindowsType.lower() in ['all', 'x64']):
+                   self.WindowsType.lower() in ['all', 'x64']):
                     add_section = False
                     cave_jumping = False
                     if self.WindowsIntelx64['PATCH_TYPE'].lower() == 'append':
@@ -449,7 +452,7 @@ class ProxyMaster(controller.Master):
                     result = targetFile.run_this()
 
                 elif (machineType == 0x14c and
-                              self.WindowsType.lower() in ['all', 'x86']):
+                      self.WindowsType.lower() in ['all', 'x86']):
                     add_section = False
                     cave_jumping = False
                     # add_section wins for cave_jumping

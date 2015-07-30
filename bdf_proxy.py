@@ -46,6 +46,8 @@ import magic
 from contextlib import contextmanager
 from configobj import ConfigObj
 
+version = "Version: v0.3.3"
+
 
 @contextmanager
 def in_dir(dirpath):
@@ -821,6 +823,7 @@ except Exception as e:
     sys.exit(1)
 
 EnhancedOutput.print_info("Starting BDFProxy")
+EnhancedOutput.print_info(version)
 EnhancedOutput.print_info("Author: @midnite_runr | the[.]midnite).(runr<at>gmail|.|com")
 EnhancedOutput.logging_info("################ Starting BDFProxy-ng ################")
 

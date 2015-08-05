@@ -46,7 +46,7 @@ import magic
 from contextlib import contextmanager
 from configobj import ConfigObj
 
-version = "Version: v0.3.3"
+version = "Version: v0.3.4"
 
 
 @contextmanager
@@ -445,10 +445,12 @@ class ProxyMaster(controller.Master):
                                              ADD_SECTION=add_section,
                                              CAVE_JUMPING=cave_jumping,
                                              IMAGE_TYPE=self.WindowsType,
+                                             RUNAS_ADMIN=self.str2bool(self.WindowsIntelx86['RUNAS_ADMIN']),
                                              PATCH_DLL=self.str2bool(self.WindowsIntelx64['PATCH_DLL']),
                                              SUPPLIED_SHELLCODE=self.WindowsIntelx64['SUPPLIED_SHELLCODE'],
                                              ZERO_CERT=self.str2bool(self.WindowsIntelx64['ZERO_CERT']),
-                                             PATCH_METHOD=self.WindowsIntelx64['PATCH_METHOD'].lower()
+                                             PATCH_METHOD=self.WindowsIntelx64['PATCH_METHOD'].lower(),
+                                             SUPPLIED_BINARY=self.WindowsIntelx64['SUPPLIED_BINARY'],
                                              )
 
                     result = targetFile.run_this()
@@ -467,6 +469,7 @@ class ProxyMaster(controller.Master):
                     # if automatic override
                     if self.WindowsIntelx86['PATCH_METHOD'].lower() == 'automatic':
                         cave_jumping = True
+                        add_section = False
 
                     targetFile = pebin.pebin(FILE=binaryFile,
                                              OUTPUT=os.path.basename(binaryFile),
@@ -476,10 +479,13 @@ class ProxyMaster(controller.Master):
                                              ADD_SECTION=add_section,
                                              CAVE_JUMPING=cave_jumping,
                                              IMAGE_TYPE=self.WindowsType,
+                                             RUNAS_ADMIN=self.str2bool(self.WindowsIntelx86['RUNAS_ADMIN']),
                                              PATCH_DLL=self.str2bool(self.WindowsIntelx86['PATCH_DLL']),
                                              SUPPLIED_SHELLCODE=self.WindowsIntelx86['SUPPLIED_SHELLCODE'],
                                              ZERO_CERT=self.str2bool(self.WindowsIntelx86['ZERO_CERT']),
-                                             PATCH_METHOD=self.WindowsIntelx86['PATCH_METHOD'].lower()
+                                             PATCH_METHOD=self.WindowsIntelx86['PATCH_METHOD'].lower(),
+                                             SUPPLIED_BINARY=self.WindowsIntelx86['SUPPLIED_BINARY'],
+                                             XP_MODE=self.str2bool(self.WindowsIntelx86['XP_MODE'])
                                              )
 
                     result = targetFile.run_this()
@@ -739,6 +745,8 @@ class ProxyMaster(controller.Master):
                     EnhancedOutput.print_error("Patching failed")
                     EnhancedOutput.logging_info("Patching failed for HOST: {0}, PATH: {1}".format(flow.request.host, flow.request.path))
 
+                # add_try to delete here
+                
                 tmp.close()
             else:
                 for archive in self.archiveTypes:

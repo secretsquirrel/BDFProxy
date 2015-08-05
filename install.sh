@@ -1,5 +1,6 @@
 #!/bin/bash
 git submodule init
 git submodule update
-pip install libmagic
+
+pip install --upgrade magic
 ./update.sh

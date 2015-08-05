@@ -1,5 +1,5 @@
 
-#The Backdoor Factory Proxy (BDFProxy) v0.3.3
+#The Backdoor Factory Proxy (BDFProxy) v0.3.4
 For security professionals and researchers only.
 
 ###NOW ONLY WORKS WITH MITMPROXY < 13 and >= v.0.11 
@@ -54,6 +54,8 @@ Yes, some of those apps are protected by self checking mechanisms.  I've been wo
 	mitmProxy - Kali Build .10
 	BDF - most current
 	Capstone (part of BDF)
+	libmagic
+	python-magic
 
 ---
 ##Supported Environment:
@@ -128,4 +130,16 @@ We have it.  The proxy window will quickly fill with massive amounts of cat link
 	-Arp Redirection
 	-Physical plant in a wiring closet
 	-Logical plant at your favorite ISP
+
+
+###Change Log:
+
+####8/6/2015
+
+Added support for onionduke. To use change PATCH_METHOD to onionduke and SUPPLIED_BINARY to the binary that you wish to bind to the target executable.
+
+Added support to set the check and patching of the requestedExecutionLevel in the PE manifest as highestAvailable for both x86 and x86_64 PE binaries. Set RUNAS_ADMIN as True.
+
+Added support to set whether to support legacy XP machines via the XP_MODE flag as True.  This can have evasion against AVs as their emulators may fail if this setting is set to FALSE.
+
 

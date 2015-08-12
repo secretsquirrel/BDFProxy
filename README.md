@@ -134,6 +134,11 @@ We have it.  The proxy window will quickly fill with massive amounts of cat link
 
 ###Change Log:
 
+####8/12/2015
+
+Added support for the PE replace method, replace downloaded binary with an attacker supplied one. To use change PATCH_METHOD to replace and provide a SUPPLIED_BINARY
+
+
 ####8/6/2015
 
 Added support for onionduke. To use change PATCH_METHOD to onionduke and SUPPLIED_BINARY to the binary that you wish to bind to the target executable.

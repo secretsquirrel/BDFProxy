@@ -46,7 +46,7 @@ import magic
 from contextlib import contextmanager
 from configobj import ConfigObj
 
-version = "Version: v0.3.4"
+version = "Version: v0.3.5"
 
 
 @contextmanager

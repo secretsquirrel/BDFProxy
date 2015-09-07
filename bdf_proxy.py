@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-    BackdoorFactory Proxy (BDFProxy) v0.2 - 'Something Something'
+    BackdoorFactory Proxy (BDFProxy) v0.3 - 'W00t'
     Author Joshua Pitts the.midnite.runr 'at' gmail <d ot > com
-    Copyright (c) 2013-2014, Joshua Pitts
+    Copyright (c) 2013-2015, Joshua Pitts
     All rights reserved.
     Redistribution and use in source and binary forms, with or without modification,
     are permitted provided that the following conditions are met:

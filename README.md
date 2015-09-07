@@ -2,7 +2,7 @@
 #The Backdoor Factory Proxy (BDFProxy) v0.3.5
 For security professionals and researchers only.
 
-###NOW ONLY WORKS WITH MITMPROXY < 13 and >= v.0.11 
+###NOW ONLY WORKS WITH MITMPROXY >= v.0.11 
 
 To install on Kali:
 

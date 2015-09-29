@@ -11,7 +11,17 @@ apt-get update
 apt-get install bdfproxy
 ```
 
-DerbyCon 2014 Presentation: http://www.youtube.com/watch?v=LjUN9MACaTs
+Black Hat USA 2015:
+
+    Video: https://www.youtube.com/watch?v=OuyLzkG16Uk
+    
+    Paper: https://www.blackhat.com/docs/us-15/materials/us-15-Pitts-Repurposing-OnionDuke-A-Single-Case-Study-Around-Reusing-Nation-State-Malware-wp.pdf
+
+
+DerbyCon 2014: 
+
+    Video: http://www.youtube.com/watch?v=LjUN9MACaTs
+
 
 About 18 minutes in is the BDFProxy portion.
 

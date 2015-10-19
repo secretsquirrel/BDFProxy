@@ -144,6 +144,11 @@ We have it.  The proxy window will quickly fill with massive amounts of cat link
 
 ###Change Log:
 
+####10/19/2015
+
+Add support for BDF Import Directory Patching into the a code cave vs a new section.  Update IDA_IN_CAVE to True in the bdfproxy.cfg file for this.  EXPERIMENTAL...
+
+
 ####8/12/2015
 
 Added support for the PE replace method, replace downloaded binary with an attacker supplied one. To use change PATCH_METHOD to replace and provide a SUPPLIED_BINARY

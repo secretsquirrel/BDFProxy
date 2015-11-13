@@ -64,8 +64,6 @@ Yes, some of those apps are protected by self checking mechanisms.  I've been wo
 	mitmProxy - Kali Build .10
 	BDF - most current
 	Capstone (part of BDF)
-	libmagic
-	python-magic
 
 ---
 ##Supported Environment:
@@ -143,6 +141,11 @@ We have it.  The proxy window will quickly fill with massive amounts of cat link
 
 
 ###Change Log:
+
+####11/13/2015
+
+Remove python-magic dependencies because there are two libraries that are named as such.  Which is confusing.
+
 
 ####10/19/2015
 

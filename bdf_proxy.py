@@ -45,7 +45,7 @@ import json
 from contextlib import contextmanager
 from configobj import ConfigObj
 
-version = "Version: v0.3.7"
+version = "Version: v0.3.8"
 
 
 @contextmanager
@@ -464,6 +464,7 @@ class ProxyMaster(controller.Master):
                                              PATCH_METHOD=self.WindowsIntelx64['PATCH_METHOD'].lower(),
                                              SUPPLIED_BINARY=self.WindowsIntelx64['SUPPLIED_BINARY'],
                                              IDT_IN_CAVE=self.str2bool(self.WindowsIntelx64['IDT_IN_CAVE']),
+                                             CODE_SIGN=self.str2bool(self.WindowsIntelx64['CODE_SIGN']),
                                              )
 
                     result = targetFile.run_this()
@@ -500,6 +501,7 @@ class ProxyMaster(controller.Master):
                                              SUPPLIED_BINARY=self.WindowsIntelx86['SUPPLIED_BINARY'],
                                              XP_MODE=self.str2bool(self.WindowsIntelx86['XP_MODE']),
                                              IDT_IN_CAVE=self.str2bool(self.WindowsIntelx86['IDT_IN_CAVE']),
+                                             CODE_SIGN=self.str2bool(self.WindowsIntelx86['CODE_SIGN']),
                                              )
 
                     result = targetFile.run_this()

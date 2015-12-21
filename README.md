@@ -142,6 +142,12 @@ We have it.  The proxy window will quickly fill with massive amounts of cat link
 
 ###Change Log:
 
+####12/20/2015
+
+Added configuration options in bdfproxy.cfg to support PE code signing from BDF => CODE_SIGN
+See BDF README for details
+
+
 ####11/13/2015
 
 Remove python-magic dependencies because there are two libraries that are named as such.  Which is confusing.

@@ -7,6 +7,15 @@ For security professionals and researchers only.
 Because MITMPROXY moved libmproxy to mitmproxy (library naming), we'll be stuck at v.0.16 until everything is updated.
 Get it here: https://github.com/mitmproxy/mitmproxy/tree/v0.16
 
+Docker:
+```
+ # sudo echo 1 > /proc/sys/net/ipv4/ip_forward  # linux
+ # sudo sysctl -w net.inet.ip.forwarding=1 # macOS
+ docker pull secretsquirrel/bdfproxy
+ docker run -it -p 8080:8080 secretsquirrel/bdfproxy bash
+ # ./bdf_proxy.py
+```
+
 To install on Kali:
 
 ```

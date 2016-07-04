@@ -27,9 +27,12 @@
     POSSIBILITY OF SUCH DAMAGE.
     Tested on Kali-Linux.
 """
-
-from libmproxy import controller, proxy, platform
-from libmproxy.proxy.server import ProxyServer
+try:
+    from mitmproxy import controller, proxy, platform
+    from mitmproxy.proxy.server import ProxyServer
+except:
+    from libmproxy import controller, proxy, platform
+    from libmproxy.proxy.server import ProxyServer
 import os
 from bdf import pebin
 from bdf import elfbin
@@ -252,22 +255,26 @@ class ProxyMaster(controller.Master):
         was_patched = False
 
         for info in members:
-            EnhancedOutput.print_info(">>> Next file in tarfile: {0}".format(info.name))
+            try:
+                EnhancedOutput.print_info(">>> Next file in tarfile: {0}".format(info.name))
 
-            if not info.isfile():
-                EnhancedOutput.print_warning("{0} is not a file, skipping".format(info.name))
-                new_tar_file.addfile(info, tar_file.extractfile(info))
-                continue
+                if not info.isfile():
+                    EnhancedOutput.print_warning("{0} is not a file, skipping".format(info.name))
+                    new_tar_file.addfile(info, tar_file.extractfile(info))
+                    continue
 
-            if info.size >= long(self.FileSizeMax):
-                EnhancedOutput.print_warning("{0} is too big, skipping".format(info.name))
-                new_tar_file.addfile(info, tar_file.extractfile(info))
-                continue
+                if info.size >= long(self.FileSizeMax):
+                    EnhancedOutput.print_warning("{0} is too big, skipping".format(info.name))
+                    new_tar_file.addfile(info, tar_file.extractfile(info))
+                    continue
 
-            # Check against keywords
-            if self.check_keyword(info.name.lower()) is True:
-                EnhancedOutput.print_warning("Tar blacklist enforced!")
-                EnhancedOutput.logging_info('Tar blacklist enforced on {0}'.format(info.name))
+                # Check against keywords
+                if self.check_keyword(info.name.lower()) is True:
+                    EnhancedOutput.print_warning("Tar blacklist enforced!")
+                    EnhancedOutput.logging_info('Tar blacklist enforced on {0}'.format(info.name))
+                    continue
+            except:
+                print "[!] strange formating, bailing on this file"
                 continue
 
             # Try to patch
@@ -465,6 +472,7 @@ class ProxyMaster(controller.Master):
                                              SUPPLIED_BINARY=self.WindowsIntelx64['SUPPLIED_BINARY'],
                                              IDT_IN_CAVE=self.str2bool(self.WindowsIntelx64['IDT_IN_CAVE']),
                                              CODE_SIGN=self.str2bool(self.WindowsIntelx64['CODE_SIGN']),
+                                             PREPROCESS=self.str2bool(self.WindowsIntelx64['PREPROCESS']),
                                              )
 
                     result = targetFile.run_this()
@@ -502,6 +510,7 @@ class ProxyMaster(controller.Master):
                                              XP_MODE=self.str2bool(self.WindowsIntelx86['XP_MODE']),
                                              IDT_IN_CAVE=self.str2bool(self.WindowsIntelx86['IDT_IN_CAVE']),
                                              CODE_SIGN=self.str2bool(self.WindowsIntelx86['CODE_SIGN']),
+                                             PREPROCESS=self.str2bool(self.WindowsIntelx86['PREPROCESS']),
                                              )
 
                     result = targetFile.run_this()
@@ -519,7 +528,8 @@ class ProxyMaster(controller.Master):
                                                HOST=self.LinuxIntelx86['HOST'],
                                                PORT=int(self.LinuxIntelx86['PORT']),
                                                SUPPLIED_SHELLCODE=self.LinuxIntelx86['SUPPLIED_SHELLCODE'],
-                                               IMAGE_TYPE=self.LinuxType
+                                               IMAGE_TYPE=self.LinuxType,
+                                               PREPROCESS=self.str2bool(self.LinuxIntelx86['PREPROCESS']),
                                                )
                     result = targetFile.run_this()
                 elif targetFile.class_type == 0x2:
@@ -530,7 +540,8 @@ class ProxyMaster(controller.Master):
                                                HOST=self.LinuxIntelx64['HOST'],
                                                PORT=int(self.LinuxIntelx64['PORT']),
                                                SUPPLIED_SHELLCODE=self.LinuxIntelx64['SUPPLIED_SHELLCODE'],
-                                               IMAGE_TYPE=self.LinuxType
+                                               IMAGE_TYPE=self.LinuxType,
+                                               PREPROCESS=self.str2bool(self.LinuxIntelx64['PREPROCESS']),
                                                )
                     result = targetFile.run_this()
 
@@ -548,7 +559,8 @@ class ProxyMaster(controller.Master):
                                                        HOST=self.MachoIntelx86['HOST'],
                                                        PORT=int(self.MachoIntelx86['PORT']),
                                                        SUPPLIED_SHELLCODE=self.MachoIntelx86['SUPPLIED_SHELLCODE'],
-                                                       FAT_PRIORITY=self.FatPriority
+                                                       FAT_PRIORITY=self.FatPriority,
+                                                       PREPROCESS=self.str2bool(self.MachoIntelx86['PREPROCESS']),
                                                        )
                         result = targetFile.run_this()
 
@@ -559,7 +571,8 @@ class ProxyMaster(controller.Master):
                                                        HOST=self.MachoIntelx64['HOST'],
                                                        PORT=int(self.MachoIntelx64['PORT']),
                                                        SUPPLIED_SHELLCODE=self.MachoIntelx64['SUPPLIED_SHELLCODE'],
-                                                       FAT_PRIORITY=self.FatPriority
+                                                       FAT_PRIORITY=self.FatPriority,
+                                                       PREPROCESS=self.str2bool(self.MachoIntelx64['PREPROCESS']),
                                                        )
                         result = targetFile.run_this()
 
@@ -570,7 +583,8 @@ class ProxyMaster(controller.Master):
                                                    HOST=self.MachoIntelx86['HOST'],
                                                    PORT=int(self.MachoIntelx86['PORT']),
                                                    SUPPLIED_SHELLCODE=self.MachoIntelx86['SUPPLIED_SHELLCODE'],
-                                                   FAT_PRIORITY=self.FatPriority
+                                                   FAT_PRIORITY=self.FatPriority,
+                                                   PREPROCESS=self.str2bool(self.MachoIntelx86['PREPROCESS']),
                                                    )
                     result = targetFile.run_this()
 
@@ -581,7 +595,8 @@ class ProxyMaster(controller.Master):
                                                    HOST=self.MachoIntelx64['HOST'],
                                                    PORT=int(self.MachoIntelx64['PORT']),
                                                    SUPPLIED_SHELLCODE=self.MachoIntelx64['SUPPLIED_SHELLCODE'],
-                                                   FAT_PRIORITY=self.FatPriority
+                                                   FAT_PRIORITY=self.FatPriority,
+                                                   PREPROCESS=self.str2bool(self.MachoIntelx64['PREPROCESS']),
                                                    )
                     result = targetFile.run_this()
 

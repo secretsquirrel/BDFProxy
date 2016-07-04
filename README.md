@@ -2,10 +2,7 @@
 #The Backdoor Factory Proxy (BDFProxy) v0.3.5
 For security professionals and researchers only.
 
-###NOW ONLY WORKS WITH v.0.16 >= MITMPROXY >= v.0.11 
-
-Because MITMPROXY moved libmproxy to mitmproxy (library naming), we'll be stuck at v.0.16 until everything is updated.
-Get it here: https://github.com/mitmproxy/mitmproxy/tree/v0.16
+###NOW ONLY WORKS WITH v.0.17 >= MITMPROXY >= v.0.11 
 
 Docker:
 ```

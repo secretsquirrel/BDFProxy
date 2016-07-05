@@ -154,6 +154,10 @@ We have it.  The proxy window will quickly fill with massive amounts of cat link
 
 ###Change Log:
 
+####07/04/2016
+
+Support for BDF Preprocessor and mitmProxy v17
+
 ####12/20/2015
 
 Added configuration options in bdfproxy.cfg to support PE code signing from BDF => CODE_SIGN

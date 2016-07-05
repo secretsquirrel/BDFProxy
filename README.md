@@ -2,6 +2,9 @@
 #The Backdoor Factory Proxy (BDFProxy) v0.3.5
 For security professionals and researchers only.
 
+[![Black Hat Arsenal](https://www.toolswatch.org/badges/arsenal/2015.svg)](https://www.blackhat.com/us-15/arsenal.html)
+
+
 ###NOW ONLY WORKS WITH v.0.17 >= MITMPROXY >= v.0.11 
 
 Docker:

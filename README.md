@@ -1,5 +1,7 @@
 
 #The Backdoor Factory Proxy (BDFProxy) v0.3.5
+
+[![Join the chat at https://gitter.im/secretsquirrel/BDFProxy](https://badges.gitter.im/secretsquirrel/BDFProxy.svg)](https://gitter.im/secretsquirrel/BDFProxy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 For security professionals and researchers only.
 
 [![Black Hat Arsenal](https://www.toolswatch.org/badges/arsenal/2015.svg)](https://www.blackhat.com/us-15/arsenal.html)

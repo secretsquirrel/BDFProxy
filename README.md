@@ -160,7 +160,7 @@ Bugs happen, but if I can't understand your issue, I can't help you.
 
 Submit issues here: https://github.com/secretsquirrel/BDFProxy/issues
 
-Include the following information the output of the these commands (use pastebin for the longer commands):
+Include the following information from the output of the these commands (use pastebin for the longer commands):
 
 ```
 # bdfproxy only supports v11 -> v17

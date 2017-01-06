@@ -163,7 +163,7 @@ Submit issues here: https://github.com/secretsquirrel/BDFProxy/issues
 Include the following information the output of the these commands (use pastebin for the longer commands):
 
 ```
-# bdfproxy only support v11 -> v17
+# bdfproxy only supports v11 -> v17
 $ mitmproxy --version
 
 $ uname -a

@@ -154,6 +154,27 @@ We have it.  The proxy window will quickly fill with massive amounts of cat link
 	-Logical plant at your favorite ISP
 
 
+##Bug Reporting
+
+Bugs happen, but if I can't understand your issue, I can't help you.
+
+Submit issues here: https://github.com/secretsquirrel/BDFProxy/issues
+
+Include the following information the output of the these commands (use pastebin for the longer commands):
+
+```
+# bdfproxy only support v11 -> v17
+$ mitmproxy --version
+
+$ uname -a
+
+# Use pastebin perhaps
+$ cat bdfproxy.cfg 
+$ ./bdf_proxy.py
+
+```
+
+
 ###Change Log:
 
 ####07/04/2016

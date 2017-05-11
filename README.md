@@ -1,5 +1,5 @@
 
-#The Backdoor Factory Proxy (BDFProxy) v0.3.8
+# The Backdoor Factory Proxy (BDFProxy) v0.3.8
 
 
 For security professionals and researchers only.
@@ -7,7 +7,7 @@ For security professionals and researchers only.
 [![Join the chat at https://gitter.im/secretsquirrel/BDFProxy](https://badges.gitter.im/secretsquirrel/BDFProxy.svg)](https://gitter.im/secretsquirrel/BDFProxy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)  [![Black Hat Arsenal](https://www.toolswatch.org/badges/arsenal/2015.svg)](https://www.blackhat.com/us-15/arsenal.html)
 
 
-###NOW ONLY WORKS WITH v.0.17 >= MITMPROXY >= v.0.11 
+### NOW ONLY WORKS WITH v.0.17 >= MITMPROXY >= v.0.11 
 
 Docker:
 ```
@@ -50,10 +50,10 @@ Contact the developer on:
 This script rides on two libraries for usage:
 The Backdoor Factory (BDF) and the mitmProxy.
 
-###Concept:
+### Concept:
 Patch binaries during download ala MITM.
 
-###Why:
+### Why:
 Because a lot of security tool websites still serve binaries via non-SSL/TLS means.
 
 Here's a short list:
@@ -71,7 +71,7 @@ Yes, some of those apps are protected by self checking mechanisms.  I've been wo
 
 ---
 
-##Depends:
+## Depends:
 
 	Pefile - most recent
 	ConfigObj  
@@ -80,11 +80,11 @@ Yes, some of those apps are protected by self checking mechanisms.  I've been wo
 	Capstone (part of BDF)
 
 ---
-##Supported Environment:
+## Supported Environment:
 Tested on all Kali Linux builds, whether a physical beefy laptop, a Raspberry Pi, or a VM, each can run BDFProxy. 
 
 
-##Install:
+## Install:
 BDF is in bdf/ 
 
 Run the following to pull down the most recent:
@@ -103,7 +103,7 @@ If you get a certificate error, run the following:
 And exit [Ctr+C] after mitmProxy loads.
 
 
-##Usage:
+## Usage:
 Update everything before each use:
 
 	./update.sh
@@ -132,7 +132,7 @@ Wifi usage:
 		<Internet>----<mitmMachine>----<wifiPineapple>)))
 
 
-##Testing:
+## Testing:
 
 	Suppose you want to use your browser with Firefox and FoxyProxy to connect to test your setup.
 
@@ -144,17 +144,17 @@ Wifi usage:
 
 
 
-##Logging: 
+## Logging: 
 We have it.  The proxy window will quickly fill with massive amounts of cat links depending on the client you are testing.  Use `tail -f proxy.log` to see what is getting patched and blocked by your blacklist settings.  However, keep an eye on the main proxy window if you have chosen to patch binaries manually, things move fast and behind the scences there is multi-threading of traffic, but the intial requests and responses are locking for your viewing pleasure.
 
-##Attack Scenarios (all with permission of targets):
+## Attack Scenarios (all with permission of targets):
 	-Evil Wifi AP
 	-Arp Redirection
 	-Physical plant in a wiring closet
 	-Logical plant at your favorite ISP
 
 
-##Bug Reporting
+## Bug Reporting
 
 Bugs happen, but if I can't understand your issue, I can't help you.
 
@@ -175,34 +175,34 @@ $ ./bdf_proxy.py
 ```
 
 
-###Change Log:
+### Change Log:
 
-####07/04/2016
+#### 07/04/2016
 
 Support for BDF Preprocessor and mitmProxy v17
 
-####12/20/2015
+#### 12/20/2015
 
 Added configuration options in bdfproxy.cfg to support PE code signing from BDF => CODE_SIGN
 See BDF README for details
 
 
-####11/13/2015
+#### 11/13/2015
 
 Remove python-magic dependencies because there are two libraries that are named as such.  Which is confusing.
 
 
-####10/19/2015
+#### 10/19/2015
 
 Add support for BDF Import Directory Patching into the a code cave vs a new section.  Update IDA_IN_CAVE to True in the bdfproxy.cfg file for this.  EXPERIMENTAL...
 
 
-####8/12/2015
+#### 8/12/2015
 
 Added support for the PE replace method, replace downloaded binary with an attacker supplied one. To use change PATCH_METHOD to replace and provide a SUPPLIED_BINARY
 
 
-####8/6/2015
+#### 8/6/2015
 
 Added support for onionduke. To use change PATCH_METHOD to onionduke and SUPPLIED_BINARY to the binary that you wish to bind to the target executable.
 

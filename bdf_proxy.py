@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 """
     BackdoorFactory Proxy (BDFProxy) v0.3 - 'W00t'
     Author Joshua Pitts the.midnite.runr 'at' gmail <d ot > com
@@ -34,9 +34,9 @@ except:
     from libmproxy import controller, proxy, platform
     from libmproxy.proxy.server import ProxyServer
 import os
-from bdf import pebin
-from bdf import elfbin
-from bdf import machobin
+from bdfactory import pebin
+from bdfactory import elfbin
+from bdfactory import machobin
 import shutil
 import sys
 import pefile
@@ -47,6 +47,7 @@ import tarfile
 import json
 from contextlib import contextmanager
 from configobj import ConfigObj
+from mitmproxy import options
 
 version = "Version: v0.3.8"
 
@@ -157,7 +158,7 @@ class ProxyMaster(controller.Master):
     patchIT = False
 
     def __init__(self, srv):
-        controller.Master.__init__(self, srv)
+        controller.Master.__init__(self, None, srv)
 
         self.magicNumbers = {'elf': {'number': '7f454c46'.decode('hex'), 'offset': 0},
                              'pe': {'number': 'MZ', 'offset': 0},
@@ -806,10 +807,18 @@ class ProxyMaster(controller.Master):
 
         print "=" * 10, "END RESPONSE", "=" * 10
 
+
+
 ################################## START MAIN #######################################
 
-CONFIGFILE = "bdfproxy.cfg"
-BDFOLDER = "backdoored"
+# OS integration
+# if bdfproxy.cfg exists in current dir, use it, otherwhise use system-wide
+if os.path.isfile('bdfproxy.cfg'):
+    CONFIGFILE = 'bdfproxy.cfg'
+else:
+    CONFIGFILE = '/etc/bdfproxy/bdfproxy.cfg'
+
+DFOLDER = "/tmp/backdoored"
 
 # Initial CONFIG reading
 user_config = ConfigObj(CONFIGFILE)
@@ -818,18 +827,21 @@ user_config = ConfigObj(CONFIGFILE)
 # DOES NOT UPDATE ON THE FLY
 resourceScript = user_config['Overall']['resourceScriptFile']
 
-config = proxy.ProxyConfig(clientcerts=os.path.expanduser(user_config['Overall']['certLocation']),
-                           body_size_limit=int(user_config['Overall']['MaxSizeFileRequested']),
-                           port=int(user_config['Overall']['proxyPort']),
-                           mode=user_config['Overall']['proxyMode'],
-                           )
+
+opts = options.Options(clientcerts=os.path.expanduser(user_config['Overall']['certLocation']),
+                       listen_port=int(user_config['Overall']['proxyPort']),
+                       body_size_limit=int(user_config['Overall']['MaxSizeFileRequested']),
+                       mode=user_config['Overall']['proxyMode'])
+
+config = proxy.ProxyConfig(opts)
+
 
 if user_config['Overall']['proxyMode'] != "None":
     config.proxy_mode = {'sslports': user_config['Overall']['sslports'],
                          'resolver': platform.resolver()
                          }
 
-server = ProxyServer(config)
+server     = ProxyServer(config)
 
 numericLogLevel = getattr(logging, user_config['Overall']['loglevel'].upper(), None)
 

@@ -22,14 +22,14 @@ SERVER_PID=$!
 cd -
 
 echo "[*] Making a backup copy of config"
-cp bdfproxy.cfg bdfproxy.cfg.backup
+cp /etc/bdfproxy/bdfproxy.cfg bdfproxy.cfg
 
 echo "[*] Patching config to turn off transparentProxy"
 sed -i 's/^transparentProxy.\+/transparentProxy = False/' bdfproxy.cfg
 
 # start the proxy
 echo "[*] Starting"
-$PYTHON ./bdf_proxy.py &
+$PYTHON /ur/bin/bdf_proxy &
 sleep 5
 PROXY_PID=$!
 
@@ -43,12 +43,9 @@ echo "[*] Shutting down"
 kill $SERVER_PID
 kill $PROXY_PID
 
-echo "[*] Copying old config back"
-cp bdfproxy.cfg.backup bdfproxy.cfg
-
 echo "[*] Cleaning up temporary files"
 rm -f /tmp/ls
-rm bdfproxy.cfg.backup
+rm bdfproxy.cfg
 
 echo "[*] ls_backdoored is available for testing in" $(pwd)
 chmod +x ls_backdoored

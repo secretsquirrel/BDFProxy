@@ -1,6 +1,9 @@
 
-#The Backdoor Factory Proxy (BDFProxy) v0.3.8
+# BDFProxy IS NO LONGER MAINTAINED OR SUPPORTED
 
+BLOG: http://secureallthethings.blogspot.com/2017/08/closing-door-end-of-backdoor-factory.html 
+
+# The Backdoor Factory Proxy (BDFProxy) v0.3.8
 
 For security professionals and researchers only.
 

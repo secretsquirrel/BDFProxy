@@ -1,5 +1,5 @@
 
-# BDFProxy IS NO LONGER MAINTAINED OR SUPPORTED
+# New version of BDFProxy out JULY 2021, only to sponsors! Sponsor here: https://github.com/sponsors/secretsquirrel
 
 BLOG: http://secureallthethings.blogspot.com/2017/08/closing-door-end-of-backdoor-factory.html 
 

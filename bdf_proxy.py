@@ -50,6 +50,15 @@ from configobj import ConfigObj
 
 version = "Version: v0.3.8"
 
+update_banner ="""         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         ALERT: NEW VERSION IN DEVELOPMENT 
+         *** ONLY AVAILABLE TO SPONSORS ***
+         SPONSOR THE NEXT VERSION HERE: https://github.com/sponsors/secretsquirrel
+         Author:    Joshua Pitts
+         Email:     the.midnite.runr[-at ]gmail<d o-t>com
+         Twitter:   @ausernamedjosh
+         SPONSOR THE NEXT VERSION HERE: https://github.com/sponsors/secretsquirrel
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"""
 
 @contextmanager
 def in_dir(dirpath):
@@ -875,6 +884,7 @@ except Exception as e:
     sys.exit(1)
 
 EnhancedOutput.print_info("Starting BDFProxy")
+EnhancedOutput.print_info(update_banner)
 EnhancedOutput.print_info(version)
 EnhancedOutput.print_info("Author: @midnite_runr | the[.]midnite).(runr<at>gmail|.|com")
 EnhancedOutput.logging_info("################ Starting BDFProxy ################")

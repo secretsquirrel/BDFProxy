@@ -51,7 +51,7 @@ from configobj import ConfigObj
 version = "Version: v0.3.8"
 
 update_banner ="""         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-         ALERT: NEW VERSION IN DEVELOPMENT 
+         ALERT: NEW VERSION AVAILABLE
          *** ONLY AVAILABLE TO SPONSORS ***
          SPONSOR THE NEXT VERSION HERE: https://github.com/sponsors/secretsquirrel
          Author:    Joshua Pitts
